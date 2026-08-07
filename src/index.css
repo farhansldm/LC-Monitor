@@ -1,0 +1,236 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 222 60% 28%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 94%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 44%;
+
+    --accent: 164 55% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 16% 90%;
+    --input: 220 16% 90%;
+    --ring: 222 60% 28%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 14% 65%;
+    --sidebar-primary: 164 55% 46%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 38% 17%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 222 28% 18%;
+    --sidebar-ring: 164 55% 46%;
+    --sidebar-muted: 222 18% 36%;
+
+    --success: 160 55% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 78% 52%;
+    --info-foreground: 0 0% 100%;
+
+    --gradient-start: 222 60% 28%;
+    --gradient-end: 164 55% 38%;
+  }
+
+  .dark {
+    --background: 224 28% 6%;
+    --foreground: 220 14% 92%;
+
+    --card: 224 24% 10%;
+    --card-foreground: 220 14% 92%;
+
+    --popover: 224 24% 10%;
+    --popover-foreground: 220 14% 92%;
+
+    --primary: 164 55% 46%;
+    --primary-foreground: 224 40% 8%;
+
+    --secondary: 224 20% 15%;
+    --secondary-foreground: 220 14% 92%;
+
+    --muted: 224 16% 14%;
+    --muted-foreground: 220 10% 50%;
+
+    --accent: 164 55% 46%;
+    --accent-foreground: 224 40% 8%;
+
+    --destructive: 0 62% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 224 16% 16%;
+    --input: 224 16% 16%;
+    --ring: 164 55% 46%;
+
+    --sidebar-background: 224 36% 6%;
+    --sidebar-foreground: 220 12% 76%;
+    --sidebar-primary: 164 55% 50%;
+    --sidebar-primary-foreground: 224 40% 8%;
+    --sidebar-accent: 224 24% 12%;
+    --sidebar-accent-foreground: 220 12% 92%;
+    --sidebar-border: 224 20% 14%;
+    --sidebar-ring: 164 55% 50%;
+    --sidebar-muted: 224 18% 28%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  /* Premium card with layered shadow */
+  .card-premium {
+    @apply bg-card rounded-xl border border-border/50 transition-all duration-300;
+    box-shadow:
+      0 0 0 1px hsl(var(--border) / 0.04),
+      0 1px 3px 0 hsl(222 47% 11% / 0.04),
+      0 4px 12px -2px hsl(222 47% 11% / 0.03);
+  }
+
+  .card-premium:hover {
+    box-shadow:
+      0 0 0 1px hsl(var(--border) / 0.08),
+      0 4px 12px -2px hsl(222 47% 11% / 0.06),
+      0 12px 32px -8px hsl(222 47% 11% / 0.08);
+    transform: translateY(-2px);
+  }
+
+  /* Interactive card that responds to clicks */
+  .card-interactive {
+    @apply card-premium cursor-pointer;
+  }
+  .card-interactive:active {
+    transform: translateY(0);
+    transition-duration: 100ms;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass effects */
+  .header-glass {
+    background: hsl(var(--card) / 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .glass-dark {
+    background: hsl(222 47% 11% / 0.7);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+  }
+
+  /* Stat icon container */
+  .stat-icon {
+    @apply h-11 w-11 rounded-xl flex items-center justify-center;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.14));
+  }
+
+  /* Section label */
+  .section-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground;
+  }
+
+  /* Page heading */
+  .page-heading {
+    @apply text-2xl font-display font-bold tracking-tight text-foreground;
+  }
+
+  .page-subheading {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+
+  /* Premium input styling */
+  .input-premium {
+    @apply h-11 bg-muted/30 border-border/50 rounded-xl;
+    @apply focus:bg-card focus:border-primary/30 focus:ring-2 focus:ring-primary/10;
+    @apply transition-all duration-200;
+  }
+
+  /* Dot indicator */
+  .dot-live {
+    @apply h-2 w-2 rounded-full bg-success;
+    animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 hsl(var(--success) / 0.4); }
+    50% { opacity: 0.8; box-shadow: 0 0 0 6px hsl(var(--success) / 0); }
+  }
+
+  /* Smooth scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 100px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  /* Chat bubbles */
+  .chat-bubble-self {
+    @apply bg-primary text-primary-foreground;
+    border-radius: 1.25rem 1.25rem 0.375rem 1.25rem;
+  }
+  .chat-bubble-other {
+    @apply bg-muted text-foreground;
+    border-radius: 1.25rem 1.25rem 1.25rem 0.375rem;
+  }
+}
