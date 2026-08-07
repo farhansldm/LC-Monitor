@@ -526,7 +526,7 @@ serve(async (req) => {
       // Fetch active session if not provided
       let activeSessionId: string | null = null;
       const firstEntryWithoutSession = entries.some(e => !e.session_id || !isUUID(e.session_id));
-      
+
       if (firstEntryWithoutSession) {
         const { data: activeSession } = await supabase
           .from("work_sessions")

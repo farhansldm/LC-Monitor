@@ -103,11 +103,10 @@ export function AppSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className={`rounded-lg h-9 transition-all duration-150 ${
-                        active
+                      className={`rounded-lg h-9 transition-all duration-150 ${active
                           ? "bg-sidebar-accent text-white font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-white/90"
-                      }`}
+                        }`}
                     >
                       <NavLink to={item.url} end>
                         <item.icon className="h-[15px] w-[15px] shrink-0" />
@@ -144,11 +143,10 @@ export function AppSidebar() {
                           asChild
                           isActive={active}
                           tooltip={item.title}
-                          className={`rounded-lg h-9 transition-all duration-150 ${
-                            active
+                          className={`rounded-lg h-9 transition-all duration-150 ${active
                               ? "bg-sidebar-accent text-white font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
                               : "text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-white/90"
-                          }`}
+                            }`}
                         >
                           <NavLink to={item.url} end>
                             <item.icon className="h-[15px] w-[15px] shrink-0" />

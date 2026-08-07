@@ -1,5 +1,5 @@
-project_id = "cuawkttwzfpjtqwjaybu"
-
+project_id = "fnojavvttewlritnqgiz"
+ 
 [functions.auth]
 verify_jwt = false
 
@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.work-sessions]
 verify_jwt = false
 
-[functions.agent]
+[functions.chat]
+verify_jwt = false
+
+[functions.tasks]
 verify_jwt = false
