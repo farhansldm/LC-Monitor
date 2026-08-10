@@ -36,4 +36,6 @@ export const workSessionsApi = {
     request(`browser-history?user_id=${userId}&date=${date}`),
   addBrowserHistory: (history: Array<{ url: string; title?: string; duration_seconds: number; visited_at: string; session_id?: string }>) =>
     request("browser-history", { method: "POST", body: JSON.stringify(history) }),
+  getScreenshots: (userId: string, date: string) =>
+    request(`screenshots?user_id=${userId}&date=${date}`),
 };

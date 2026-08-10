@@ -18,6 +18,7 @@ import EmployeeDashboardPage from "@/pages/EmployeeDashboardPage";
 import ChatsPage from "@/pages/ChatsPage";
 import TasksPage from "@/pages/TasksPage";
 import BrowserHistoryPage from "@/pages/BrowserHistoryPage";
+import ScreenshotsPage from "@/pages/ScreenshotsPage";
 import NotFound from "@/pages/NotFound";
 
 import AdminBrowserHistoryPage from "@/pages/admin/BrowserHistoryPage";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/tasks" element={<ProtectedPage><TasksPage /></ProtectedPage>} />
             <Route path="/team" element={<ProtectedPage><TeamPage /></ProtectedPage>} />
             <Route path="/browser-history" element={<ProtectedPage><BrowserHistoryPage /></ProtectedPage>} />
+            <Route path="/screenshots" element={<ProtectedPage><ScreenshotsPage /></ProtectedPage>} />
             <Route path="/admin" element={<ProtectedPage><AdminPage /></ProtectedPage>} />
             <Route path="/admin/users" element={<ProtectedPage><AdminUsersPage /></ProtectedPage>} />
             <Route path="/admin/teams" element={<ProtectedPage><AdminTeamsPage /></ProtectedPage>} />

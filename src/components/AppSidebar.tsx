@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ClipboardList,
   Globe,
+  Camera,
 } from "lucide-react";
 import companyLogo from "@/assets/lemoncode-logo.png";
 import { NavLink } from "@/components/NavLink";
@@ -39,6 +40,7 @@ const navItems = [
   { title: "Tasks", url: "/tasks", icon: ClipboardList, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
   { title: "Team", url: "/team", icon: Users, roles: ["MANAGER", "ADMIN"] },
   { title: "Browser History", url: "/browser-history", icon: Globe, roles: ["MANAGER", "ADMIN"] },
+  { title: "Screenshots", url: "/screenshots", icon: Camera, roles: ["MANAGER", "ADMIN"] },
 ];
 
 const adminItems = [
