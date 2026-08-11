@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     errorMsg.style.display = 'none';
 
     try {
-      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,11 +44,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error_description || data.msg || 'Login failed');
+        throw new Error(data.error || data.msg || 'Login failed');
       }
 
+      const session = {
+        access_token: data.token,
+        user: data.user
+      };
+
       // Save session to chrome local storage
-      await chrome.storage.local.set({ session: data });
+      await chrome.storage.local.set({ session });
       showStatus(data.user.email);
       
       // Notify background script that login occurred

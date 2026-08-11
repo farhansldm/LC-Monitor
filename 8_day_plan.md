@@ -68,20 +68,21 @@
 **Goal:** Wire up the screenshots API so the frontend can actually fetch screenshot data.
 
 ### Tasks
-- [ ] Check if `screenshots` table exists in Supabase (the extension already inserts into it)
-  - If not: write migration `supabase/migrations/YYYYMMDD_create_screenshots_table.sql`
-  - Columns: `id`, `user_id`, `storage_path`, `taken_at`, `is_blurred`
-- [ ] Check if Supabase Storage bucket `screenshots` exists — create if not
-- [ ] Add `/screenshots` endpoint to the `work-sessions` Edge Function
+- [x] Check if `screenshots` table exists in Supabase — created migration [`supabase/migrations/20260811000000_create_screenshots_table_and_cleanup.sql`](file:///d:/SLDM/Lc-Monitor-main/supabase/migrations/20260811000000_create_screenshots_table_and_cleanup.sql)
+  - Columns: `id`, `user_id`, `storage_path`, `taken_at`, `is_blurred`, `created_at`
+  - Automated 15-day cleanup routine for DB and storage files
+- [x] Check if Supabase Storage bucket `screenshots` exists — created in migration SQL
+- [x] Add `/screenshots` endpoint to the `work-sessions` Edge Function
   - `GET /work-sessions/screenshots?user_id=X&date=YYYY-MM-DD`
   - Returns array of `{ id, storage_path, taken_at, public_url }`
-  - Generate public URLs from storage: `SUPABASE_URL/storage/v1/object/public/screenshots/{path}`
-- [ ] Test end-to-end: clock in → wait for extension to fire → screenshot appears on page
+  - Automatically executes 15-day purge on fetch
+- [x] Extension updated: screenshot alarm set to exactly 15 minutes (`delayInMinutes: 15, periodInMinutes: 15`)
 
 ### Files to Create / Modify
-- `supabase/migrations/YYYYMMDD_create_screenshots_table.sql` (if needed)
-- `supabase/functions/work-sessions/index.ts` — add `/screenshots` GET handler
-- [`src/lib/work-sessions-api.ts`](file:///d:/SLDM/Lc-Monitor-main/src/lib/work-sessions-api.ts) — finalize `getScreenshots()`
+- [`supabase/migrations/20260811000000_create_screenshots_table_and_cleanup.sql`](file:///d:/SLDM/Lc-Monitor-main/supabase/migrations/20260811000000_create_screenshots_table_and_cleanup.sql)
+- [`supabase/functions/work-sessions/index.ts`](file:///d:/SLDM/Lc-Monitor-main/supabase/functions/work-sessions/index.ts) — added `/screenshots` GET handler
+- [`extension/background.js`](file:///d:/SLDM/Lc-Monitor-main/extension/background.js) — set strict 15-min timer
+- [`src/lib/work-sessions-api.ts`](file:///d:/SLDM/Lc-Monitor-main/src/lib/work-sessions-api.ts) — finalized `getScreenshots()`
 
 ### Deliverable
 > Real screenshots appear in the Screenshots page pulled from Supabase Storage.

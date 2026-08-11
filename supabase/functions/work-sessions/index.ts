@@ -614,6 +614,143 @@ serve(async (req) => {
       return json({ history: data || [] });
     }
 
+    // POST /work-sessions/screenshots — receive base64 image from extension,
+    // upload to Supabase Storage using service role key (extension JWT is rejected by Storage),
+    // then insert the record into the screenshots table.
+    if (action === "screenshots" && req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const imageBase64: string | undefined = body?.image_base64;
+      const takenAt: string = body?.taken_at || new Date().toISOString();
+      const isBlurred: boolean = body?.is_blurred ?? false;
+
+      if (!imageBase64 || typeof imageBase64 !== "string") {
+        return json({ error: "Missing image_base64" }, 400);
+      }
+
+      // Decode base64 data URL to binary
+      // Expected format: data:image/jpeg;base64,<data>
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const binaryStr = atob(base64Data);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+
+      const filePath = `${userId}/${Date.now()}.jpg`;
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      // Upload to Supabase Storage using service role key
+      const storageRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/screenshots/${filePath}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${serviceRoleKey}`,
+            apikey: serviceRoleKey,
+            "Content-Type": "image/jpeg",
+          },
+          body: bytes,
+        }
+      );
+
+      if (!storageRes.ok) {
+        const errText = await storageRes.text();
+        console.error("Storage upload failed:", errText);
+        return json({ error: "Storage upload failed", detail: errText }, 500);
+      }
+
+      // Insert record into screenshots table
+      const { data, error } = await supabase
+        .from("screenshots")
+        .insert({
+          user_id: userId,
+          storage_path: filePath,
+          taken_at: takenAt,
+          is_blurred: isBlurred,
+        })
+        .select("id, storage_path, taken_at")
+        .single();
+
+      if (error) throw error;
+      return json({ screenshot: data }, 201);
+    }
+
+    // GET /work-sessions/screenshots — retrieve screenshot records for a user & date
+    if (action === "screenshots" && req.method === "GET") {
+      const targetUserId = url.searchParams.get("user_id") || userId;
+      const dateParam = url.searchParams.get("date") || todayDate();
+
+      if (!isUUID(targetUserId)) {
+        return json({ error: "Missing or invalid user_id" }, 400);
+      }
+
+      // Check access permissions
+      if (targetUserId !== userId) {
+        if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+          return json({ error: "Forbidden" }, 403);
+        }
+
+        if (userRole === "MANAGER") {
+          if (!userTeamId) {
+            return json({ error: "Manager has no assigned team" }, 403);
+          }
+          const { data: targetUser } = await supabase
+            .from("users")
+            .select("team_id")
+            .eq("id", targetUserId)
+            .maybeSingle();
+
+          if (!targetUser || targetUser.team_id !== userTeamId) {
+            return json({ error: "Forbidden: User is not on your team" }, 403);
+          }
+        }
+      }
+
+      // Automated retention cleanup: purge DB records & storage files older than 15 days according to date/time
+      try {
+        const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: oldScreenshots } = await supabase
+          .from("screenshots")
+          .select("id, storage_path")
+          .lt("taken_at", fifteenDaysAgo);
+
+        if (oldScreenshots && oldScreenshots.length > 0) {
+          const pathsToRemove = oldScreenshots.map((s) => s.storage_path).filter(Boolean);
+          if (pathsToRemove.length > 0) {
+            await supabase.storage.from("screenshots").remove(pathsToRemove);
+          }
+          await supabase.from("screenshots").delete().lt("taken_at", fifteenDaysAgo);
+        }
+      } catch (cleanupErr) {
+        console.error("Screenshot retention cleanup error:", cleanupErr);
+      }
+
+      // Query screenshots for target date
+      let query = supabase
+        .from("screenshots")
+        .select("id, user_id, storage_path, taken_at, is_blurred, created_at")
+        .eq("user_id", targetUserId)
+        .order("taken_at", { ascending: true });
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        query = query
+          .gte("taken_at", `${dateParam}T00:00:00.000Z`)
+          .lte("taken_at", `${dateParam}T23:59:59.999Z`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+      const screenshots = (data || []).map((s) => ({
+        ...s,
+        public_url: `${supabaseUrl}/storage/v1/object/public/screenshots/${s.storage_path}`,
+      }));
+
+      return json({ screenshots });
+    }
+
     return json({ error: "Not found" }, 404);
   } catch (err) {
     console.error("Work sessions error:", err);
