@@ -2,11 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
+  const origin = req.headers.get("origin") || "*";
   return {
-    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   };
 }
 
@@ -40,10 +41,11 @@ async function verifyJWT(token: string, secret: string): Promise<Record<string, 
   }
 }
 
-function requireAuth(req: Request, jwtSecret: string) {
+async function requireAuth(req: Request, jwtSecret: string): Promise<Record<string, unknown> | null> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
-  return verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
+  if (!jwtSecret) return null;
+  return await verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
 }
 
 function todayDate(): string {
@@ -111,15 +113,15 @@ serve(async (req) => {
         .order("break_start", { ascending: true });
 
       const activeBreak = (breaks || []).find((b: { break_end: string | null }) => !b.break_end) || null;
-      const totalBreakSeconds = (breaks || []).reduce((sum: number, b: { duration_seconds: number; break_start: string; break_end: string | null }) => {
-        if (b.break_end) return sum + b.duration_seconds;
-        return sum + Math.floor((Date.now() - new Date(b.break_start).getTime()) / 1000);
+      const totalBreakSeconds = (breaks || []).reduce((sum: number, b: { duration_seconds?: number; break_start: string; break_end: string | null }) => {
+        if (b.break_end) return sum + (b.duration_seconds || 0);
+        return sum + Math.max(0, Math.floor((Date.now() - new Date(b.break_start).getTime()) / 1000));
       }, 0);
 
       // Total active seconds across ALL completed sessions
       const totalCompletedSeconds = allSessions
         .filter((s) => s.end_time)
-        .reduce((sum, s) => sum + s.total_active_seconds, 0);
+        .reduce((sum, s) => sum + (s.total_active_seconds || 0), 0);
 
       return json({
         session: currentSession,
@@ -171,7 +173,7 @@ serve(async (req) => {
             .from("breaks")
             .select("duration_seconds")
             .eq("session_id", os.id);
-          const totalBreakSec = (allBreaks || []).reduce((s: number, b: { duration_seconds: number }) => s + b.duration_seconds, 0);
+          const totalBreakSec = (allBreaks || []).reduce((s: number, b: { duration_seconds?: number }) => s + (b.duration_seconds || 0), 0);
 
           const totalSec = Math.floor((now.getTime() - new Date(os.start_time).getTime()) / 1000);
           const activeSec = Math.max(0, totalSec - totalBreakSec);
@@ -234,7 +236,7 @@ serve(async (req) => {
           .from("breaks")
           .select("duration_seconds")
           .eq("session_id", session.id);
-        const totalBreakSec = (allBreaks || []).reduce((s: number, b: { duration_seconds: number }) => s + b.duration_seconds, 0);
+        const totalBreakSec = (allBreaks || []).reduce((s: number, b: { duration_seconds?: number }) => s + (b.duration_seconds || 0), 0);
 
         const totalSec = Math.floor((now.getTime() - new Date(session.start_time).getTime()) / 1000);
         const activeSec = Math.max(0, totalSec - totalBreakSec);
@@ -315,7 +317,7 @@ serve(async (req) => {
       if (!activeBreak) return json({ error: "Not on break" }, 400);
 
       const now = new Date();
-      const durationSeconds = Math.floor((now.getTime() - new Date(activeBreak.break_start).getTime()) / 1000);
+      const durationSeconds = Math.max(0, Math.floor((now.getTime() - new Date(activeBreak.break_start).getTime()) / 1000));
 
       const { data: updated, error } = await supabase
         .from("breaks")
@@ -430,18 +432,18 @@ serve(async (req) => {
         let todaySeconds = 0;
         if (todaySession) {
           if (todaySession.end_time) {
-            todaySeconds = todaySession.total_active_seconds;
+            todaySeconds = todaySession.total_active_seconds || 0;
           } else {
-            todaySeconds = Math.floor((now - new Date(todaySession.start_time).getTime()) / 1000);
+            todaySeconds = Math.max(0, Math.floor((now - new Date(todaySession.start_time).getTime()) / 1000));
           }
         }
 
         let periodSeconds = 0;
         userSessions.forEach((s) => {
           if (s.end_time) {
-            periodSeconds += s.total_active_seconds;
+            periodSeconds += (s.total_active_seconds || 0);
           } else {
-            periodSeconds += Math.floor((now - new Date(s.start_time).getTime()) / 1000);
+            periodSeconds += Math.max(0, Math.floor((now - new Date(s.start_time).getTime()) / 1000));
           }
         });
 
@@ -604,8 +606,8 @@ serve(async (req) => {
 
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
         query = query
-          .gte("visited_at", `${dateParam}T00:00:00Z`)
-          .lt("visited_at", `${dateParam}T23:59:59.999Z`);
+          .gte("visited_at", `${dateParam}T00:00:00.000Z`)
+          .lte("visited_at", `${dateParam}T23:59:59.999Z`);
       }
 
       const { data, error } = await query;
@@ -629,7 +631,7 @@ serve(async (req) => {
 
       // Decode base64 data URL to binary
       // Expected format: data:image/jpeg;base64,<data>
-      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "").replace(/\s/g, "");
       const binaryStr = atob(base64Data);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) {
@@ -749,6 +751,305 @@ serve(async (req) => {
       }));
 
       return json({ screenshots });
+    }
+
+    // ─── GET /work-sessions/attendance?month=M&year=Y ─────────────────────────
+    // Returns the authenticated user's attendance calendar for a given month.
+    // Includes active and completed work_sessions and cross-checks
+    // the attendance table for explicit LEAVE / HOLIDAY overrides.
+    if (action === "attendance" && req.method === "GET") {
+      const month = parseInt(url.searchParams.get("month") || "0", 10);
+      const year = parseInt(url.searchParams.get("year") || "0", 10);
+
+      if (!month || !year || month < 1 || month > 12 || year < 2020 || year > 2100) {
+        return json({ error: "Invalid or missing month/year parameters" }, 400);
+      }
+
+      // Build date range for the requested month (UTC)
+      const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDayDate = new Date(Date.UTC(year, month, 0)); // last day of month
+      const lastDay = lastDayDate.toISOString().slice(0, 10);
+
+      // Fetch all work sessions for this month (including active ones where end_time is null)
+      const { data: sessions, error: sessErr } = await supabase
+        .from("work_sessions")
+        .select("date, start_time, end_time, total_active_seconds")
+        .eq("user_id", userId)
+        .gte("date", firstDay)
+        .lte("date", lastDay)
+        .order("date", { ascending: true });
+      if (sessErr) throw sessErr;
+
+      // Fetch explicit attendance overrides (LEAVE, HOLIDAY, etc.)
+      const { data: attRows, error: attErr } = await supabase
+        .from("attendance")
+        .select("date, status, total_work_seconds, notes")
+        .eq("user_id", userId)
+        .gte("date", firstDay)
+        .lte("date", lastDay);
+      if (attErr) throw attErr;
+
+      // Build lookup maps
+      const nowTs = Date.now();
+      const sessionMap: Record<string, { start_time: string; end_time?: string; total_active_seconds: number }> = {};
+      for (const s of sessions || []) {
+        const activeSec = s.end_time
+          ? (s.total_active_seconds || 0)
+          : Math.max(0, Math.floor((nowTs - new Date(s.start_time).getTime()) / 1000));
+
+        if (!sessionMap[s.date]) {
+          sessionMap[s.date] = {
+            start_time: s.start_time,
+            end_time: s.end_time || undefined,
+            total_active_seconds: activeSec,
+          };
+        } else {
+          sessionMap[s.date].total_active_seconds += activeSec;
+          if (s.end_time) sessionMap[s.date].end_time = s.end_time;
+        }
+      }
+
+      const attMap: Record<string, { status: string; total_work_seconds: number; notes: string | null }> = {};
+      for (const a of attRows || []) {
+        attMap[a.date] = a;
+      }
+
+      // Determine which days of this month are weekends (Sat=6, Sun=0)
+      const daysInMonth = lastDayDate.getUTCDate();
+      const todayStr = todayDate();
+      const records: unknown[] = [];
+
+      let presentCount = 0;
+      let absentCount = 0;
+      let leaveCount = 0;
+      let holidayCount = 0;
+      let workingDays = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const dow = new Date(`${dateStr}T12:00:00Z`).getUTCDay(); // 0=Sun, 6=Sat
+        const isWeekend = dow === 0 || dow === 6;
+        const isFuture = dateStr > todayStr;
+
+        let status: string;
+        let clock_in: string | undefined;
+        let clock_out: string | undefined;
+        let total_hours: number | undefined;
+
+        if (isWeekend) {
+          status = "WEEKEND";
+        } else if (isFuture) {
+          status = "FUTURE";
+        } else {
+          workingDays++;
+          const override = attMap[dateStr];
+          if (override && override.status !== "PRESENT") {
+            // Explicit override wins (LEAVE / HOLIDAY)
+            status = override.status;
+            if (override.status === "LEAVE") leaveCount++;
+            if (override.status === "HOLIDAY") holidayCount++;
+          } else {
+            const sess = sessionMap[dateStr];
+            if (sess) {
+              status = "PRESENT";
+              presentCount++;
+              clock_in = sess.start_time;
+              clock_out = sess.end_time;
+              total_hours = Math.round((sess.total_active_seconds / 3600) * 100) / 100;
+            } else {
+              status = "ABSENT";
+              absentCount++;
+            }
+          }
+        }
+
+        records.push({ date: dateStr, status, clock_in, clock_out, total_hours });
+      }
+
+      return json({
+        month,
+        year,
+        records,
+        summary: {
+          present: presentCount,
+          absent: absentCount,
+          leave: leaveCount,
+          holiday: holidayCount,
+          total_working_days: workingDays,
+        },
+      });
+    }
+
+    // ─── GET /work-sessions/attendance/corrections/mine ───────────────────────
+    // Returns the authenticated employee's own submitted correction requests.
+    if (action === "mine" && pathParts.includes("corrections") && req.method === "GET") {
+      const { data, error } = await supabase
+        .from("attendance_corrections")
+        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return json(data || []);
+    }
+
+    // ─── GET /work-sessions/attendance/corrections/all ────────────────────────
+    // MANAGER / ADMIN only: all correction requests with employee names joined.
+    if (action === "all" && pathParts.includes("corrections") && req.method === "GET") {
+      if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      const { data, error } = await supabase
+        .from("attendance_corrections")
+        .select(`
+          id, user_id, date, reason, status, reviewer_id, reviewed_at, created_at,
+          users:user_id (first_name, last_name, email)
+        `)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      // Flatten joined user fields safely (handling both single object or array return from Supabase)
+      const corrections = (data || []).map((c: Record<string, unknown>) => {
+        const uRaw = c.users;
+        const u = Array.isArray(uRaw) ? uRaw[0] : (uRaw as { first_name?: string; last_name?: string; email?: string } | null);
+        return {
+          id: c.id,
+          user_id: c.user_id,
+          date: c.date,
+          reason: c.reason,
+          status: c.status,
+          reviewer_id: c.reviewer_id,
+          reviewed_at: c.reviewed_at,
+          created_at: c.created_at,
+          employee_name: u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() : null,
+          employee_email: u?.email ?? null,
+        };
+      });
+
+      return json(corrections);
+    }
+
+    // ─── POST /work-sessions/attendance/corrections ───────────────────────────
+    // Employee submits a new attendance correction request.
+    if (action === "corrections" && pathParts.includes("attendance") && req.method === "POST") {
+      let body: { date?: string; reason?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+
+      const { date, reason } = body;
+
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return json({ error: "Missing or invalid 'date' (YYYY-MM-DD)" }, 400);
+      }
+      if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+        return json({ error: "Missing or empty 'reason'" }, 400);
+      }
+      if (date > todayDate()) {
+        return json({ error: "Cannot submit correction for a future date" }, 400);
+      }
+
+      // Look up existing attendance record for that date to get original times
+      const { data: existingSession } = await supabase
+        .from("work_sessions")
+        .select("start_time, end_time")
+        .eq("user_id", userId)
+        .eq("date", date)
+        .maybeSingle();
+
+      const { data: correction, error } = await supabase
+        .from("attendance_corrections")
+        .insert({
+          user_id: userId,
+          date,
+          reason: reason.trim().slice(0, 500),
+          original_in: existingSession?.start_time ?? null,
+          original_out: existingSession?.end_time ?? null,
+          requested_in: existingSession?.start_time ?? null,
+          requested_out: existingSession?.end_time ?? null,
+          status: "PENDING",
+        })
+        .select("id, user_id, date, reason, status, created_at")
+        .single();
+      if (error) throw error;
+
+      return json({ correction }, 201);
+    }
+
+    // ─── PATCH /work-sessions/attendance/corrections/:id/review ──────────────
+    // MANAGER / ADMIN only: approve or reject a correction.
+    if (action === "review" && pathParts.includes("corrections") && req.method === "PATCH") {
+      if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      // Extract correction id — it's the segment before "review"
+      const correctionIdx = pathParts.indexOf("review") - 1;
+      const correctionId = correctionIdx >= 0 ? pathParts[correctionIdx] : null;
+
+      if (!correctionId || !isUUID(correctionId)) {
+        return json({ error: "Missing or invalid correction id" }, 400);
+      }
+
+      let body: { action?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+
+      const reviewAction = body.action;
+      if (reviewAction !== "APPROVED" && reviewAction !== "REJECTED") {
+        return json({ error: "action must be APPROVED or REJECTED" }, 400);
+      }
+
+      // Fetch the correction to verify it exists and is PENDING
+      const { data: existing, error: fetchErr } = await supabase
+        .from("attendance_corrections")
+        .select("id, status, user_id, date")
+        .eq("id", correctionId)
+        .maybeSingle();
+      if (fetchErr) throw fetchErr;
+      if (!existing) return json({ error: "Correction not found" }, 404);
+      if (existing.status !== "PENDING") {
+        return json({ error: "Correction has already been reviewed" }, 409);
+      }
+
+      // If manager (not admin), restrict to own team
+      if (userRole === "MANAGER" && userTeamId) {
+        const { data: empRow } = await supabase
+          .from("users")
+          .select("team_id")
+          .eq("id", existing.user_id)
+          .maybeSingle();
+        if (!empRow || empRow.team_id !== userTeamId) {
+          return json({ error: "Forbidden: Employee is not on your team" }, 403);
+        }
+      }
+
+      // Update correction status
+      const { data: updated, error: updateErr } = await supabase
+        .from("attendance_corrections")
+        .update({
+          status: reviewAction,
+          reviewer_id: userId,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", correctionId)
+        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at, created_at")
+        .single();
+      if (updateErr) throw updateErr;
+
+      // If APPROVED, upsert an attendance record so the calendar shows PRESENT
+      if (reviewAction === "APPROVED") {
+        await supabase
+          .from("attendance")
+          .upsert(
+            {
+              user_id: existing.user_id,
+              date: existing.date,
+              status: "PRESENT",
+              total_work_seconds: 0,
+            },
+            { onConflict: "user_id,date" }
+          );
+      }
+
+      return json({ correction: updated });
     }
 
     return json({ error: "Not found" }, 404);
