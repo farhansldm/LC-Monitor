@@ -6,7 +6,7 @@ function getCorsHeaders(req: Request) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+      "authorization, x-client-info, apikey, content-type, x-mock-ip, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   };
 }
@@ -61,6 +61,68 @@ function weekStart(): string {
   return monday.toISOString().slice(0, 10);
 }
 
+/** Client IP from proxy / CDN headers (supports X-Mock-IP for local dev). */
+function getClientIp(req: Request): string | null {
+  const mock = req.headers.get("x-mock-ip");
+  if (mock?.trim()) return mock.trim();
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf?.trim()) return cf.trim();
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp?.trim()) return realIp.trim();
+  return null;
+}
+
+function ipv4ToInt(ip: string): number | null {
+  const parts = ip.split(".").map((p) => Number(p));
+  if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) return null;
+  return ((parts[0]! << 24) >>> 0) + (parts[1]! << 16) + (parts[2]! << 8) + parts[3]!;
+}
+
+function ipInCidr(ip: string, cidr: string): boolean {
+  const [range, bitsStr] = cidr.split("/");
+  if (!range) return false;
+  const bits = bitsStr === undefined || bitsStr === "" ? 32 : Number(bitsStr);
+  if (!Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+  const ipNum = ipv4ToInt(ip);
+  const rangeNum = ipv4ToInt(range);
+  if (ipNum === null || rangeNum === null) return false;
+  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+  return (ipNum & mask) === (rangeNum & mask);
+}
+
+function classifyLoginType(ip: string | null, ranges: { cidr: string }[]): "WFH" | "SITE" {
+  if (!ip) return "WFH";
+  // Strip IPv6-mapped IPv4 prefix if present
+  const normalized = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+  for (const r of ranges) {
+    if (r.cidr && ipInCidr(normalized, r.cidr.trim())) return "SITE";
+  }
+  return "WFH";
+}
+
+/** Wall-clock time in Asia/Kolkata for shift late/early checks. */
+function getIstTimeSeconds(date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value || 0);
+  return get("hour") * 3600 + get("minute") * 60 + get("second");
+}
+
+function timeStringToSeconds(t: string): number {
+  const [h = "0", m = "0", s = "0"] = t.split(":");
+  return Number(h) * 3600 + Number(m) * 60 + Number(s);
+}
+
 serve(async (req) => {
   const cors = getCorsHeaders(req);
   const json = (body: unknown, status = 200) =>
@@ -92,7 +154,7 @@ serve(async (req) => {
       // Fetch ALL sessions for today (multiple clock-in/out cycles)
       const { data: sessions, error } = await supabase
         .from("work_sessions")
-        .select("id, start_time, end_time, total_active_seconds, date, notes")
+        .select("id, start_time, end_time, total_active_seconds, date, notes, ip_address, login_type, late_flag, early_flag")
         .eq("user_id", userId)
         .eq("date", todayDate())
         .order("start_time", { ascending: true });
@@ -185,14 +247,47 @@ serve(async (req) => {
         }
       }
 
+      // Capture IP + classify WFH / SITE against trusted office ranges
+      const ipAddress = getClientIp(req);
+      const { data: officeRanges } = await supabase
+        .from("office_ip_ranges")
+        .select("cidr");
+      const loginType = classifyLoginType(ipAddress, officeRanges || []);
+
+      // Late flag vs assigned shift start (Asia/Kolkata wall clock)
+      let lateFlag = false;
+      const { data: userShiftRow } = await supabase
+        .from("user_shifts")
+        .select("shift_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (userShiftRow?.shift_id) {
+        const { data: shiftRow } = await supabase
+          .from("shifts")
+          .select("start_time")
+          .eq("id", userShiftRow.shift_id)
+          .maybeSingle();
+        if (shiftRow?.start_time) {
+          lateFlag = getIstTimeSeconds(now) > timeStringToSeconds(String(shiftRow.start_time));
+        }
+      }
+
       // Create new session
       const { data: session, error } = await supabase
         .from("work_sessions")
-        .insert({ user_id: userId, date: today, start_time: now.toISOString(), source: "MANUAL" })
-        .select("id, start_time, end_time, total_active_seconds, date")
+        .insert({
+          user_id: userId,
+          date: today,
+          start_time: now.toISOString(),
+          source: "MANUAL",
+          ip_address: ipAddress,
+          login_type: loginType,
+          late_flag: lateFlag,
+        })
+        .select("id, start_time, end_time, total_active_seconds, date, ip_address, login_type, late_flag, early_flag")
         .single();
       if (error) throw error;
-      return json({ session, is_working: true }, 201);
+      return json({ session, is_working: true, login_type: loginType, ip_address: ipAddress, late_flag: lateFlag }, 201);
     }
 
     // POST /work-sessions/clock-out
@@ -208,6 +303,24 @@ serve(async (req) => {
       if (fetchErr) throw fetchErr;
       if (!openSessions || openSessions.length === 0) {
         return json({ error: "No active session to clock out" }, 400);
+      }
+
+      // Early departure vs assigned shift end (Asia/Kolkata wall clock)
+      let earlyFlag = false;
+      const { data: userShiftOutRow } = await supabase
+        .from("user_shifts")
+        .select("shift_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (userShiftOutRow?.shift_id) {
+        const { data: shiftOutRow } = await supabase
+          .from("shifts")
+          .select("end_time")
+          .eq("id", userShiftOutRow.shift_id)
+          .maybeSingle();
+        if (shiftOutRow?.end_time) {
+          earlyFlag = getIstTimeSeconds(now) < timeStringToSeconds(String(shiftOutRow.end_time));
+        }
       }
 
       const closedSessions = [];
@@ -243,15 +356,24 @@ serve(async (req) => {
 
         const { data: updated, error: updateErr } = await supabase
           .from("work_sessions")
-          .update({ end_time: now.toISOString(), total_active_seconds: activeSec })
+          .update({
+            end_time: now.toISOString(),
+            total_active_seconds: activeSec,
+            early_flag: earlyFlag,
+          })
           .eq("id", session.id)
-          .select("id, start_time, end_time, total_active_seconds, date")
+          .select("id, start_time, end_time, total_active_seconds, date, ip_address, login_type, late_flag, early_flag")
           .single();
         if (updateErr) throw updateErr;
         closedSessions.push(updated);
       }
 
-      return json({ session: closedSessions[0], sessions_closed: closedSessions.length, is_working: false });
+      return json({
+        session: closedSessions[0],
+        sessions_closed: closedSessions.length,
+        is_working: false,
+        early_flag: earlyFlag,
+      });
     }
 
     // POST /work-sessions/break-in (start a break)
@@ -334,7 +456,7 @@ serve(async (req) => {
     if (action === "active-now" && req.method === "GET") {
       const { data, error } = await supabase
         .from("work_sessions")
-        .select("id, user_id, start_time, date")
+        .select("id, user_id, start_time, date, ip_address, login_type, late_flag")
         .eq("date", todayDate())
         .is("end_time", null);
       if (error) throw error;
@@ -405,7 +527,7 @@ serve(async (req) => {
 
       const { data: sessions, error: sessionsErr } = await supabase
         .from("work_sessions")
-        .select("id, user_id, date, start_time, end_time, total_active_seconds")
+        .select("id, user_id, date, start_time, end_time, total_active_seconds, ip_address, login_type, late_flag, early_flag")
         .in("user_id", memberIds)
         .gte("date", dateFrom)
         .lte("date", dateTo)
@@ -415,6 +537,8 @@ serve(async (req) => {
       const sessionsByUser: Record<string, Array<{
         id: string; date: string; start_time: string;
         end_time: string | null; total_active_seconds: number;
+        ip_address?: string | null; login_type?: string | null;
+        late_flag?: boolean; early_flag?: boolean;
       }>> = {};
       (sessions || []).forEach((s) => {
         if (!sessionsByUser[s.user_id]) sessionsByUser[s.user_id] = [];
@@ -425,9 +549,12 @@ serve(async (req) => {
       const enrichedMembers = members.map((m) => {
         const userSessions = sessionsByUser[m.id] || [];
         const todaySessions = userSessions.filter((s) => s.date === todayDate());
-        const todaySession = todaySessions[0] || null;
+        const activeToday = todaySessions.find((s) => !s.end_time) || null;
+        const todaySession = activeToday
+          || [...todaySessions].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0]
+          || null;
 
-        const isWorking = todaySession ? !todaySession.end_time : false;
+        const isWorking = !!activeToday;
 
         let todaySeconds = 0;
         if (todaySession) {

@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History } from "lucide-react";
+import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function formatDuration(totalSeconds: number): string {
@@ -37,6 +37,8 @@ export default function EmployeeDashboardPage() {
   const totalBreakSeconds = data?.total_break_seconds ?? 0;
   const totalCompletedSeconds = data?.total_completed_seconds ?? 0;
   const sessionCount = data?.session_count ?? 0;
+  const loginType = (session?.login_type as "WFH" | "SITE" | null | undefined) ?? null;
+  const sessionIp = (session?.ip_address as string | null | undefined) ?? null;
 
   // Calculate total active time: completed sessions + live active session
   useEffect(() => {
@@ -130,6 +132,29 @@ export default function EmployeeDashboardPage() {
               <p className="text-xs text-muted-foreground mt-2">
                 {sessionCount} session{sessionCount !== 1 ? "s" : ""} today
               </p>
+            )}
+            {loginType && (
+              <div className="mt-2.5">
+                <Badge
+                  id="login-type-badge"
+                  className={
+                    loginType === "SITE"
+                      ? "bg-info/10 text-info border-info/20 text-[11px] px-2.5 py-0.5"
+                      : "bg-primary/10 text-primary border-primary/20 text-[11px] px-2.5 py-0.5"
+                  }
+                >
+                  {loginType === "SITE" ? (
+                    <><Building2 className="h-3 w-3 mr-1" /> Working from Office</>
+                  ) : (
+                    <><Home className="h-3 w-3 mr-1" /> Working from Home</>
+                  )}
+                </Badge>
+                {sessionIp && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5 font-mono tabular-nums" id="session-ip">
+                    IP {sessionIp}
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

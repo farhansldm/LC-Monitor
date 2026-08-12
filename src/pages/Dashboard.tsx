@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Clock, Users, CalendarCheck, AlertTriangle, Activity, Timer, UsersRound, Coffee, TrendingUp } from "lucide-react";
+import { Clock, Users, CalendarCheck, AlertTriangle, Activity, Timer, UsersRound, Coffee, TrendingUp, Home, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 function StatCard({
@@ -70,7 +70,12 @@ interface TeamMember {
   id: string; first_name: string; last_name: string; email: string;
   role: string; is_working: boolean; today_seconds: number;
   period_seconds: number; session_count: number;
-  today_session: { start_time: string; end_time: string | null } | null;
+  today_session: {
+    start_time: string;
+    end_time: string | null;
+    ip_address?: string | null;
+    login_type?: "WFH" | "SITE" | null;
+  } | null;
 }
 
 function ManagerDashboard() {
@@ -167,6 +172,8 @@ function ManagerDashboard() {
                 <TableRow className="hover:bg-transparent border-border/40">
                   <TableHead className="section-label pl-6">Name</TableHead>
                   <TableHead className="section-label">Status</TableHead>
+                  <TableHead className="section-label">Location</TableHead>
+                  <TableHead className="section-label">IP</TableHead>
                   <TableHead className="section-label">Today's Hours</TableHead>
                   {period === "week" && <TableHead className="section-label">Week Total</TableHead>}
                   <TableHead className="section-label pr-6">Clock In</TableHead>
@@ -194,6 +201,22 @@ function ManagerDashboard() {
                       ) : (
                         <Badge variant="outline" className="font-medium text-[11px] border-border/50">Not started</Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {m.today_session?.login_type === "SITE" ? (
+                        <Badge className="bg-info/10 text-info border-info/20 text-[10px] px-2 py-0">
+                          <Building2 className="h-2.5 w-2.5 mr-0.5" /> Office
+                        </Badge>
+                      ) : m.today_session?.login_type === "WFH" ? (
+                        <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-2 py-0">
+                          <Home className="h-2.5 w-2.5 mr-0.5" /> WFH
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {m.today_session?.ip_address || "—"}
                     </TableCell>
                     <TableCell className="font-mono text-sm tabular-nums">{formatDuration(m.today_seconds)}</TableCell>
                     {period === "week" && (
@@ -249,22 +272,41 @@ function AdminDashboard() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border/30">
-              {activeSessions.map((s: { id: string; start_time: string; on_break?: boolean; user: { first_name: string; last_name: string; email: string } | null }) => (
+              {activeSessions.map((s: {
+                id: string;
+                start_time: string;
+                on_break?: boolean;
+                ip_address?: string | null;
+                login_type?: "WFH" | "SITE" | null;
+                user: { first_name: string; last_name: string; email: string } | null;
+              }) => (
                 <div key={s.id} className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/20 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${s.on_break ? "bg-warning/8 text-warning" : "bg-success/8 text-success"}`}>
                       {s.user ? `${s.user.first_name[0]}${s.user.last_name[0]}` : "?"}
                     </div>
                     <div>
-                      <p className="text-sm font-medium flex items-center gap-2">
+                      <p className="text-sm font-medium flex items-center gap-2 flex-wrap">
                         {s.user ? `${s.user.first_name} ${s.user.last_name}` : "Unknown"}
                         {s.on_break && (
                           <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px] px-1.5 py-0">
                             <Coffee className="h-2.5 w-2.5 mr-0.5" /> Break
                           </Badge>
                         )}
+                        {s.login_type === "SITE" ? (
+                          <Badge className="bg-info/10 text-info border-info/20 text-[10px] px-1.5 py-0">
+                            <Building2 className="h-2.5 w-2.5 mr-0.5" /> Office
+                          </Badge>
+                        ) : s.login_type === "WFH" ? (
+                          <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5 py-0">
+                            <Home className="h-2.5 w-2.5 mr-0.5" /> WFH
+                          </Badge>
+                        ) : null}
                       </p>
-                      <p className="text-[11px] text-muted-foreground">{s.user?.email}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {s.user?.email}
+                        {s.ip_address ? ` · ${s.ip_address}` : ""}
+                      </p>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono tabular-nums">
