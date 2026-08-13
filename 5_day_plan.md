@@ -381,7 +381,26 @@ DISABLE ROW LEVEL SECURITY on all new tables...
 - Empty states with icon + message
 - Mobile: tables scroll, sidebar collapses
 
-### 5D — Production Build + Deployment
+### 5D — Chrome Extension (do not start before Day 5)
+
+Core monitoring already works: popup login, 15‑min screenshots, 60s history batch, Edge Function uploads. **Leave this until Day 5.**
+
+**MODIFY** `extension/background.js`
+- Track real tab-focus time so `duration_seconds` is not always `0`
+- Replace history `setInterval` with `chrome.alarms` (MV3 service workers sleep)
+- Handle `ACTIVATE_MONITORING` from the web dashboard (today only popup `LOGIN_SUCCESS` works)
+
+**MODIFY** `src/lib/extension-activate.ts`
+- Use the current unpacked / published extension ID (hardcoded ID is likely stale)
+
+**VERIFY**
+- [ ] Reload unpacked `extension/` in Chrome
+- [ ] Login via popup → screenshot appears on `/screenshots` after a cycle
+- [ ] Visit a few sites → rows appear on `/browser-history` with non-zero duration
+- [ ] Web login activates monitoring without a second popup login
+- [ ] `Authorization: Bearer` is sent on screenshot + history POSTs
+
+### 5E — Production Build + Deployment
 
 ```bash
 # 1. Build
@@ -412,10 +431,11 @@ supabase db push  (or paste migrations in Supabase dashboard SQL editor)
 - `src/components/AppSidebar.tsx` — theme toggle
 - `src/main.tsx` — ThemeProvider
 - Various UI polish across all pages
+- `extension/background.js`, `src/lib/extension-activate.ts` — duration + web-login activate
 - Production build + deploy
 
 ### Deliverable
-> Dark mode works. Email alerts configured. All pages consistent. Production build deployed and live.
+> Dark mode works. Email alerts configured. All pages consistent. Extension duration + web-login activation verified. Production build deployed and live.
 
 ---
 
@@ -427,7 +447,7 @@ supabase db push  (or paste migrations in Supabase dashboard SQL editor)
 | **Day 2** | Leave Requests + Shifts | Full leave flow, shift admin, shift on dashboard | 6–8 hrs |
 | **Day 3** | Departments + Reports + Analytics + CSV | Reports page, dept mgmt, analytics, CSV exports | 7–9 hrs |
 | **Day 4** | Notes + Comments + Policies + Audit + IP Config | All remaining feature modules, live dashboard | 7–9 hrs |
-| **Day 5** | Dark Mode + Notifications + Polish + Deploy | Dark mode, email alerts, UI audit, production | 5–7 hrs |
+| **Day 5** | Dark Mode + Notifications + Polish + Extension + Deploy | Dark mode, email alerts, UI audit, extension duration/activate, production | 5–7 hrs |
 | **Total** | | **All requirements shipped** | **31–41 hrs** |
 
 ---
@@ -440,7 +460,9 @@ supabase db push  (or paste migrations in Supabase dashboard SQL editor)
 | `supabase db push` needs prod DB access | 🔴 Blocks deploy | Get Supabase project credentials Day 1 |
 | `recharts` not installed | 🟡 Blocks analytics charts | `npm install recharts` at start of Day 3 |
 | IP `X-Forwarded-For` may not work on local dev | 🟡 WFH/Site shows incorrectly in dev | Mock IP in dev mode; test on deployed version |
-| Extension auth vs new IP logic | 🟡 Extension may not send correct headers | Verify extension sends `Authorization` header correctly |
+| Extension auth vs new IP logic | 🟡 Extension may not send correct headers | Verify `Authorization` on screenshot + history POSTs (Day 5) |
+| Extension `duration_seconds` always 0 | 🟡 History time-on-site is blank | Tab-focus tracking on Day 5 |
+| Web login does not start extension | 🟡 Employees must log in twice | Wire `ACTIVATE_MONITORING` + current extension ID on Day 5 |
 
 ---
 
@@ -466,4 +488,5 @@ At the end of Day 5, every item in `updated req.md` is implemented:
 - ✅ Email notifications (missed clock-out, leave alerts, daily summary)
 - ✅ CSV export on reports, timesheet, attendance
 - ✅ Mobile-responsive, consistent UI
+- ✅ Chrome extension: screenshots, history duration, web-login activation
 - ✅ Production deployment with runbook

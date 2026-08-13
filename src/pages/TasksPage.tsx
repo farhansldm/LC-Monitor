@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, Task, TaskActivity } from "@/lib/tasks-api";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/contexts/AuthContext";
+import { isManagerOrAbove } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -197,7 +198,7 @@ export default function TasksPage() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newStatus, setNewStatus] = useState("TODO");
 
-  const canManage = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const canManage = isManagerOrAbove(user?.role);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tasks"],

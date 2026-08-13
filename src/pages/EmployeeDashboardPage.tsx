@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workSessionsApi } from "@/lib/work-sessions-api";
+import { shiftsApi } from "@/lib/shifts-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2 } from "lucide-react";
+import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2, CalendarClock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function formatDuration(totalSeconds: number): string {
@@ -27,6 +28,12 @@ export default function EmployeeDashboardPage() {
     queryFn: workSessionsApi.getStatus,
     refetchInterval: 30000,
   });
+
+  const { data: shiftData } = useQuery({
+    queryKey: ["my-shift"],
+    queryFn: shiftsApi.getMyShift,
+  });
+  const assignedShift = shiftData?.shift ?? null;
 
   const session = data?.session ?? null;
   const sessions = data?.sessions ?? [];
@@ -224,6 +231,23 @@ export default function EmployeeDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {assignedShift && (
+        <Card className="card-premium" id="assigned-shift-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="section-label">Assigned Shift</CardTitle>
+            <div className="stat-icon bg-info/8">
+              <CalendarClock className="h-[18px] w-[18px] text-info" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-display font-semibold">{assignedShift.name}</p>
+            <p className="text-sm text-muted-foreground font-mono tabular-nums mt-1">
+              {String(assignedShift.start_time).slice(0, 5)} – {String(assignedShift.end_time).slice(0, 5)}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Actions — always allow clock-in when not currently working */}
       <div className="flex flex-wrap gap-3">

@@ -22,6 +22,8 @@ import ScreenshotsPage from "@/pages/ScreenshotsPage";
 import NotFound from "@/pages/NotFound";
 
 import AdminBrowserHistoryPage from "@/pages/admin/BrowserHistoryPage";
+import LeaveRequestsPage from "@/pages/LeaveRequestsPage";
+import ShiftSchedulingPage from "@/pages/admin/ShiftSchedulingPage";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,7 @@ const App = () => (
             <Route path="/employee" element={<ProtectedPage><EmployeeDashboardPage /></ProtectedPage>} />
             <Route path="/timesheet" element={<ProtectedPage><TimesheetPage /></ProtectedPage>} />
             <Route path="/attendance" element={<ProtectedPage><AttendancePage /></ProtectedPage>} />
+            <Route path="/leave" element={<ProtectedPage><LeaveRequestsPage /></ProtectedPage>} />
             <Route path="/chats" element={<ProtectedPage><ChatsPage /></ProtectedPage>} />
             <Route path="/tasks" element={<ProtectedPage><TasksPage /></ProtectedPage>} />
             <Route path="/team" element={<ProtectedPage><TeamPage /></ProtectedPage>} />
@@ -53,6 +56,7 @@ const App = () => (
             <Route path="/admin/users" element={<ProtectedPage><AdminUsersPage /></ProtectedPage>} />
             <Route path="/admin/teams" element={<ProtectedPage><AdminTeamsPage /></ProtectedPage>} />
             <Route path="/admin/browser-history" element={<ProtectedPage><AdminBrowserHistoryPage /></ProtectedPage>} />
+            <Route path="/admin/shifts" element={<ProtectedPage><ShiftSchedulingPage /></ProtectedPage>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

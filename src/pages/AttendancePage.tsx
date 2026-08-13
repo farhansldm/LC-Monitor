@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { isManagerOrAbove } from "@/lib/roles";
 import {
   attendanceApi,
   AttendanceRecord,
@@ -186,7 +187,7 @@ export default function AttendancePage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [correctionError, setCorrectionError] = useState("");
 
-  const isManager = user?.role === "MANAGER" || user?.role === "ADMIN";
+  const isManager = isManagerOrAbove(user?.role);
 
   // ─── Data fetching ──────────────────────────────────────────────────────────
 

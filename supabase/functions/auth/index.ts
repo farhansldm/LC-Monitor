@@ -46,7 +46,7 @@ function validatePassword(v: unknown): string | null {
   if (v.length < 8 || v.length > 128) return null;
   return v;
 }
-const VALID_ROLES = ["EMPLOYEE", "MANAGER", "ADMIN"];
+const VALID_ROLES = ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"];
 function validateRole(v: unknown): string | null {
   if (typeof v !== "string" || !VALID_ROLES.includes(v)) return null;
   return v;

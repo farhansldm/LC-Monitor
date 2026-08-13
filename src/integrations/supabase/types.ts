@@ -697,7 +697,7 @@ export type Database = {
       session_source: "AUTO" | "MANUAL" | "MIXED"
       task_priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"
       task_status: "TODO" | "IN_PROGRESS" | "DONE"
-      user_role: "EMPLOYEE" | "MANAGER" | "ADMIN"
+      user_role: "EMPLOYEE" | "MANAGER" | "ADMIN" | "HR_MANAGER"
       user_status: "ACTIVE" | "INACTIVE"
     }
     CompositeTypes: {
@@ -843,7 +843,7 @@ export const Constants = {
       session_source: ["AUTO", "MANUAL", "MIXED"],
       task_priority: ["LOW", "MEDIUM", "HIGH", "URGENT"],
       task_status: ["TODO", "IN_PROGRESS", "DONE"],
-      user_role: ["EMPLOYEE", "MANAGER", "ADMIN"],
+      user_role: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"],
       user_status: ["ACTIVE", "INACTIVE"],
     },
   },

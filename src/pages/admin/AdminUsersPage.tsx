@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/admin-api";
+import { roleLabel } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,10 +179,11 @@ export default function AdminUsersPage() {
   const roleBadge = (r: string) => {
     const cls: Record<string, string> = {
       ADMIN: "bg-destructive/15 text-destructive border-destructive/30",
+      HR_MANAGER: "bg-accent/15 text-accent border-accent/30",
       MANAGER: "bg-info/15 text-info border-info/30",
       EMPLOYEE: "bg-primary/15 text-primary border-primary/30",
     };
-    return <Badge className={cls[r] || ""}>{r}</Badge>;
+    return <Badge className={cls[r] || ""}>{roleLabel(r)}</Badge>;
   };
 
   return (
@@ -240,6 +242,7 @@ export default function AdminUsersPage() {
                       <SelectContent>
                         <SelectItem value="EMPLOYEE">Employee</SelectItem>
                         <SelectItem value="MANAGER">Manager</SelectItem>
+                        <SelectItem value="HR_MANAGER">HR Manager</SelectItem>
                         <SelectItem value="ADMIN">Admin</SelectItem>
                       </SelectContent>
                     </Select>

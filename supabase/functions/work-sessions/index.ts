@@ -48,6 +48,14 @@ async function requireAuth(req: Request, jwtSecret: string): Promise<Record<stri
   return await verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
 }
 
+function isAdminRole(role: string) {
+  return role === "ADMIN" || role === "HR_MANAGER";
+}
+
+function isManagerOrAbove(role: string) {
+  return role === "MANAGER" || isAdminRole(role);
+}
+
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -493,7 +501,7 @@ serve(async (req) => {
 
     // GET /work-sessions/team-overview
     if (action === "team-overview" && req.method === "GET") {
-      if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+      if (!isManagerOrAbove(userRole)) {
         return json({ error: "Forbidden" }, 403);
       }
 
@@ -502,7 +510,7 @@ serve(async (req) => {
       const dateTo = todayDate();
 
       let teamId = userTeamId;
-      if (userRole === "ADMIN" && url.searchParams.get("team_id")) {
+      if (isAdminRole(userRole) && url.searchParams.get("team_id")) {
         const tid = url.searchParams.get("team_id");
         if (tid && isUUID(tid)) teamId = tid;
       }
@@ -698,7 +706,7 @@ serve(async (req) => {
 
     // GET /work-sessions/browser-history — retrieve browser history records
     if (action === "browser-history" && req.method === "GET") {
-      if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+      if (!isManagerOrAbove(userRole)) {
         return json({ error: "Forbidden" }, 403);
       }
 
@@ -816,7 +824,7 @@ serve(async (req) => {
 
       // Check access permissions
       if (targetUserId !== userId) {
-        if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+        if (!isManagerOrAbove(userRole)) {
           return json({ error: "Forbidden" }, 403);
         }
 
@@ -1012,27 +1020,30 @@ serve(async (req) => {
     if (action === "mine" && pathParts.includes("corrections") && req.method === "GET") {
       const { data, error } = await supabase
         .from("attendance_corrections")
-        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at, created_at")
+        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .order("date", { ascending: false });
       if (error) throw error;
-      return json(data || []);
+      return json((data || []).map((c: Record<string, unknown>) => ({
+        ...c,
+        created_at: c.reviewed_at || c.date,
+      })));
     }
 
     // ─── GET /work-sessions/attendance/corrections/all ────────────────────────
     // MANAGER / ADMIN only: all correction requests with employee names joined.
     if (action === "all" && pathParts.includes("corrections") && req.method === "GET") {
-      if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+      if (!isManagerOrAbove(userRole)) {
         return json({ error: "Forbidden" }, 403);
       }
 
       const { data, error } = await supabase
         .from("attendance_corrections")
         .select(`
-          id, user_id, date, reason, status, reviewer_id, reviewed_at, created_at,
+          id, user_id, date, reason, status, reviewer_id, reviewed_at,
           users:user_id (first_name, last_name, email)
         `)
-        .order("created_at", { ascending: false });
+        .order("date", { ascending: false });
       if (error) throw error;
 
       // Flatten joined user fields safely (handling both single object or array return from Supabase)
@@ -1047,7 +1058,7 @@ serve(async (req) => {
           status: c.status,
           reviewer_id: c.reviewer_id,
           reviewed_at: c.reviewed_at,
-          created_at: c.created_at,
+          created_at: c.reviewed_at || c.date,
           employee_name: u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() : null,
           employee_email: u?.email ?? null,
         };
@@ -1074,13 +1085,18 @@ serve(async (req) => {
         return json({ error: "Cannot submit correction for a future date" }, 400);
       }
 
-      // Look up existing attendance record for that date to get original times
-      const { data: existingSession } = await supabase
+      // Look up first session for that date (multiple clock-in cycles are allowed)
+      const { data: sessionRows } = await supabase
         .from("work_sessions")
         .select("start_time, end_time")
         .eq("user_id", userId)
         .eq("date", date)
-        .maybeSingle();
+        .order("start_time", { ascending: true })
+        .limit(1);
+      const existingSession = sessionRows?.[0] || null;
+
+      const fallbackIn = `${date}T00:00:00.000Z`;
+      const fallbackOut = `${date}T23:59:59.000Z`;
 
       const { data: correction, error } = await supabase
         .from("attendance_corrections")
@@ -1090,21 +1106,27 @@ serve(async (req) => {
           reason: reason.trim().slice(0, 500),
           original_in: existingSession?.start_time ?? null,
           original_out: existingSession?.end_time ?? null,
-          requested_in: existingSession?.start_time ?? null,
-          requested_out: existingSession?.end_time ?? null,
+          requested_in: existingSession?.start_time ?? fallbackIn,
+          requested_out: existingSession?.end_time ?? existingSession?.start_time ?? fallbackOut,
           status: "PENDING",
         })
-        .select("id, user_id, date, reason, status, created_at")
+        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at")
         .single();
-      if (error) throw error;
+      if (error) {
+        console.error("attendance correction insert:", error);
+        return json({ error: error.message || "Could not save correction" }, 400);
+      }
 
-      return json({ correction }, 201);
+      return json({
+        ...correction,
+        created_at: new Date().toISOString(),
+      }, 201);
     }
 
     // ─── PATCH /work-sessions/attendance/corrections/:id/review ──────────────
     // MANAGER / ADMIN only: approve or reject a correction.
     if (action === "review" && pathParts.includes("corrections") && req.method === "PATCH") {
-      if (userRole !== "MANAGER" && userRole !== "ADMIN") {
+      if (!isManagerOrAbove(userRole)) {
         return json({ error: "Forbidden" }, 403);
       }
 
@@ -1157,7 +1179,7 @@ serve(async (req) => {
           reviewed_at: new Date().toISOString(),
         })
         .eq("id", correctionId)
-        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at, created_at")
+        .select("id, user_id, date, reason, status, reviewer_id, reviewed_at")
         .single();
       if (updateErr) throw updateErr;
 
@@ -1177,6 +1199,320 @@ serve(async (req) => {
       }
 
       return json({ correction: updated });
+    }
+
+    // ─── GET /work-sessions/leave/mine ───────────────────────────────────────
+    if (action === "mine" && pathParts.includes("leave") && req.method === "GET") {
+      const { data, error } = await supabase
+        .from("leave_requests")
+        .select("id, user_id, date, reason, status, reviewer_id, reviewer_comment, reviewed_at, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return json({ leaves: data || [] });
+    }
+
+    // ─── GET /work-sessions/leave/all ────────────────────────────────────────
+    if (action === "all" && pathParts.includes("leave") && req.method === "GET") {
+      if (!isManagerOrAbove(userRole)) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      let query = supabase
+        .from("leave_requests")
+        .select(`
+          id, user_id, date, reason, status, reviewer_id, reviewer_comment, reviewed_at, created_at,
+          users:user_id (first_name, last_name, email, team_id)
+        `)
+        .order("created_at", { ascending: false });
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const leaves = (data || [])
+        .map((c: Record<string, unknown>) => {
+          const uRaw = c.users;
+          const u = Array.isArray(uRaw)
+            ? uRaw[0]
+            : (uRaw as { first_name?: string; last_name?: string; email?: string; team_id?: string | null } | null);
+          return {
+            id: c.id,
+            user_id: c.user_id,
+            date: c.date,
+            reason: c.reason,
+            status: c.status,
+            reviewer_id: c.reviewer_id,
+            reviewer_comment: c.reviewer_comment,
+            reviewed_at: c.reviewed_at,
+            created_at: c.created_at,
+            employee_name: u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() : null,
+            employee_email: u?.email ?? null,
+            team_id: u?.team_id ?? null,
+          };
+        })
+        .filter((row) => {
+          if (isAdminRole(userRole)) return true;
+          if (!userTeamId) return false;
+          return row.team_id === userTeamId;
+        });
+
+      return json({ leaves });
+    }
+
+    // ─── POST /work-sessions/leave ───────────────────────────────────────────
+    if (action === "leave" && req.method === "POST") {
+      let body: { date?: string; reason?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+
+      const { date, reason } = body;
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return json({ error: "Missing or invalid 'date' (YYYY-MM-DD)" }, 400);
+      }
+      if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+        return json({ error: "Missing or empty 'reason'" }, 400);
+      }
+
+      const { data: existing } = await supabase
+        .from("leave_requests")
+        .select("id, status")
+        .eq("user_id", userId)
+        .eq("date", date)
+        .in("status", ["PENDING", "APPROVED"])
+        .maybeSingle();
+      if (existing) {
+        return json({ error: "A leave request for this date is already pending or approved" }, 409);
+      }
+
+      const { data: leave, error } = await supabase
+        .from("leave_requests")
+        .insert({
+          user_id: userId,
+          date,
+          reason: reason.trim().slice(0, 500),
+          status: "PENDING",
+        })
+        .select("id, user_id, date, reason, status, created_at")
+        .single();
+      if (error) throw error;
+      return json({ leave }, 201);
+    }
+
+    // ─── PATCH /work-sessions/leave/:id/review ───────────────────────────────
+    if (action === "review" && pathParts.includes("leave") && req.method === "PATCH") {
+      if (!isManagerOrAbove(userRole)) {
+        return json({ error: "Forbidden" }, 403);
+      }
+
+      const leaveIdx = pathParts.indexOf("review") - 1;
+      const leaveId = leaveIdx >= 0 ? pathParts[leaveIdx] : null;
+      if (!leaveId || !isUUID(leaveId)) {
+        return json({ error: "Missing or invalid leave id" }, 400);
+      }
+
+      let body: { action?: string; comment?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+
+      const reviewAction = body.action;
+      if (reviewAction !== "APPROVED" && reviewAction !== "REJECTED") {
+        return json({ error: "action must be APPROVED or REJECTED" }, 400);
+      }
+      const comment = typeof body.comment === "string" ? body.comment.trim().slice(0, 500) : "";
+
+      const { data: existing, error: fetchErr } = await supabase
+        .from("leave_requests")
+        .select("id, status, user_id, date")
+        .eq("id", leaveId)
+        .maybeSingle();
+      if (fetchErr) throw fetchErr;
+      if (!existing) return json({ error: "Leave request not found" }, 404);
+      if (existing.status !== "PENDING") {
+        return json({ error: "Leave request has already been reviewed" }, 409);
+      }
+
+      if (userRole === "MANAGER" && userTeamId) {
+        const { data: empRow } = await supabase
+          .from("users")
+          .select("team_id")
+          .eq("id", existing.user_id)
+          .maybeSingle();
+        if (!empRow || empRow.team_id !== userTeamId) {
+          return json({ error: "Forbidden: Employee is not on your team" }, 403);
+        }
+      }
+
+      const { data: updated, error: updateErr } = await supabase
+        .from("leave_requests")
+        .update({
+          status: reviewAction,
+          reviewer_id: userId,
+          reviewer_comment: comment || null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", leaveId)
+        .select("id, user_id, date, reason, status, reviewer_id, reviewer_comment, reviewed_at, created_at")
+        .single();
+      if (updateErr) throw updateErr;
+
+      if (reviewAction === "APPROVED") {
+        await supabase
+          .from("attendance")
+          .upsert(
+            {
+              user_id: existing.user_id,
+              date: existing.date,
+              status: "LEAVE",
+              total_work_seconds: 0,
+              notes: "Approved leave request",
+            },
+            { onConflict: "user_id,date" }
+          );
+      }
+
+      return json({ leave: updated });
+    }
+
+    // ─── GET /work-sessions/shifts/mine ──────────────────────────────────────
+    if (action === "mine" && pathParts.includes("shifts") && req.method === "GET") {
+      const { data: assignment, error } = await supabase
+        .from("user_shifts")
+        .select("id, user_id, shift_id, effective_from")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!assignment) return json({ shift: null, assignment: null });
+
+      const { data: shift } = await supabase
+        .from("shifts")
+        .select("id, name, start_time, end_time, created_at")
+        .eq("id", assignment.shift_id)
+        .maybeSingle();
+
+      return json({ shift: shift || null, assignment });
+    }
+
+    // ─── GET /work-sessions/shifts ───────────────────────────────────────────
+    if (action === "shifts" && req.method === "GET") {
+      if (!isManagerOrAbove(userRole)) {
+        return json({ error: "Forbidden" }, 403);
+      }
+      const { data: shifts, error } = await supabase
+        .from("shifts")
+        .select("id, name, start_time, end_time, created_at")
+        .order("start_time", { ascending: true });
+      if (error) throw error;
+
+      const { data: assignments } = await supabase
+        .from("user_shifts")
+        .select("id, user_id, shift_id, effective_from");
+
+      const userIds = [...new Set((assignments || []).map((a: { user_id: string }) => a.user_id))];
+      let usersById: Record<string, { first_name: string; last_name: string; email: string }> = {};
+      if (userIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, first_name, last_name, email")
+          .in("id", userIds);
+        usersById = Object.fromEntries((usersData || []).map((u: { id: string; first_name: string; last_name: string; email: string }) => [u.id, u]));
+      }
+
+      const shiftNameById = Object.fromEntries((shifts || []).map((s: { id: string; name: string }) => [s.id, s.name]));
+      const enriched = (assignments || []).map((a: { id: string; user_id: string; shift_id: string; effective_from: string }) => {
+        const u = usersById[a.user_id];
+        return {
+          ...a,
+          employee_name: u ? `${u.first_name} ${u.last_name}` : "Unknown",
+          employee_email: u?.email ?? null,
+          shift_name: shiftNameById[a.shift_id] || "Unknown",
+        };
+      });
+
+      return json({ shifts: shifts || [], assignments: enriched });
+    }
+
+    // ─── POST /work-sessions/shifts ──────────────────────────────────────────
+    if (action === "shifts" && req.method === "POST") {
+      if (!isAdminRole(userRole)) return json({ error: "Forbidden" }, 403);
+
+      let body: { name?: string; start_time?: string; end_time?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      const startTime = typeof body.start_time === "string" ? body.start_time.trim() : "";
+      const endTime = typeof body.end_time === "string" ? body.end_time.trim() : "";
+      const timeRe = /^\d{2}:\d{2}(:\d{2})?$/;
+      if (!name) return json({ error: "name is required" }, 400);
+      if (!timeRe.test(startTime) || !timeRe.test(endTime)) {
+        return json({ error: "start_time and end_time must be HH:MM" }, 400);
+      }
+
+      const { data: shift, error } = await supabase
+        .from("shifts")
+        .insert({ name, start_time: startTime, end_time: endTime })
+        .select("id, name, start_time, end_time, created_at")
+        .single();
+      if (error) throw error;
+      return json({ shift }, 201);
+    }
+
+    // ─── PATCH /work-sessions/shifts/:id ─────────────────────────────────────
+    if (pathParts.includes("shifts") && req.method === "PATCH" && isUUID(action)) {
+      if (!isAdminRole(userRole)) return json({ error: "Forbidden" }, 403);
+
+      let body: { name?: string; start_time?: string; end_time?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+
+      const patch: Record<string, string> = {};
+      if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
+      const timeRe = /^\d{2}:\d{2}(:\d{2})?$/;
+      if (typeof body.start_time === "string") {
+        if (!timeRe.test(body.start_time.trim())) return json({ error: "start_time must be HH:MM" }, 400);
+        patch.start_time = body.start_time.trim();
+      }
+      if (typeof body.end_time === "string") {
+        if (!timeRe.test(body.end_time.trim())) return json({ error: "end_time must be HH:MM" }, 400);
+        patch.end_time = body.end_time.trim();
+      }
+      if (Object.keys(patch).length === 0) return json({ error: "No fields to update" }, 400);
+
+      const { data: shift, error } = await supabase
+        .from("shifts")
+        .update(patch)
+        .eq("id", action)
+        .select("id, name, start_time, end_time, created_at")
+        .single();
+      if (error) throw error;
+      return json({ shift });
+    }
+
+    // ─── POST /work-sessions/shifts/assign ───────────────────────────────────
+    if (action === "assign" && pathParts.includes("shifts") && req.method === "POST") {
+      if (!isAdminRole(userRole)) return json({ error: "Forbidden" }, 403);
+
+      let body: { user_id?: string; shift_id?: string } = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+      if (!isUUID(body.user_id) || !isUUID(body.shift_id)) {
+        return json({ error: "user_id and shift_id are required" }, 400);
+      }
+
+      const { data: userRow } = await supabase.from("users").select("id").eq("id", body.user_id).maybeSingle();
+      if (!userRow) return json({ error: "User not found" }, 404);
+      const { data: shiftRow } = await supabase.from("shifts").select("id").eq("id", body.shift_id).maybeSingle();
+      if (!shiftRow) return json({ error: "Shift not found" }, 404);
+
+      const { data: assignment, error } = await supabase
+        .from("user_shifts")
+        .upsert(
+          {
+            user_id: body.user_id,
+            shift_id: body.shift_id,
+            effective_from: todayDate(),
+          },
+          { onConflict: "user_id" }
+        )
+        .select("id, user_id, shift_id, effective_from")
+        .single();
+      if (error) throw error;
+      return json({ assignment });
     }
 
     return json({ error: "Not found" }, 404);

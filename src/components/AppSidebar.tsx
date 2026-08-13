@@ -13,10 +13,13 @@ import {
   ClipboardList,
   Globe,
   Camera,
+  Palmtree,
+  CalendarClock,
 } from "lucide-react";
 import companyLogo from "@/assets/lemoncode-logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAdminRole, roleLabel } from "@/lib/roles";
 import {
   Sidebar,
   SidebarContent,
@@ -32,15 +35,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { title: "My Workday", url: "/employee", icon: LogIn, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { title: "My Timesheet", url: "/timesheet", icon: Clock, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { title: "Attendance", url: "/attendance", icon: CalendarCheck, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { title: "Chats", url: "/chats", icon: MessageSquare, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { title: "Tasks", url: "/tasks", icon: ClipboardList, roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { title: "Team", url: "/team", icon: Users, roles: ["MANAGER", "ADMIN"] },
-  { title: "Browser History", url: "/browser-history", icon: Globe, roles: ["MANAGER", "ADMIN"] },
-  { title: "Screenshots", url: "/screenshots", icon: Camera, roles: ["MANAGER", "ADMIN"] },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "My Workday", url: "/employee", icon: LogIn, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "My Timesheet", url: "/timesheet", icon: Clock, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Attendance", url: "/attendance", icon: CalendarCheck, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Leave Requests", url: "/leave", icon: Palmtree, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Chats", url: "/chats", icon: MessageSquare, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Tasks", url: "/tasks", icon: ClipboardList, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Team", url: "/team", icon: Users, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Browser History", url: "/browser-history", icon: Globe, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Screenshots", url: "/screenshots", icon: Camera, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
 ];
 
 const adminItems = [
@@ -48,6 +52,7 @@ const adminItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Teams", url: "/admin/teams", icon: UsersRound },
   { title: "History", url: "/admin/browser-history", icon: Globe },
+  { title: "Shifts", url: "/admin/shifts", icon: CalendarClock },
 ];
 
 export function AppSidebar() {
@@ -62,6 +67,7 @@ export function AppSidebar() {
 
   const roleBadge: Record<string, string> = {
     ADMIN: "bg-accent/15 text-accent border-accent/20",
+    HR_MANAGER: "bg-accent/15 text-accent border-accent/20",
     MANAGER: "bg-info/15 text-info border-info/20",
     EMPLOYEE: "bg-sidebar-accent/80 text-sidebar-accent-foreground border-sidebar-border",
   };
@@ -126,7 +132,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Admin */}
-        {user?.role === "ADMIN" && (
+        {isAdminRole(user?.role) && (
           <>
             {!collapsed && (
               <div className="mx-3 my-4 h-px bg-sidebar-border/40" />
@@ -181,7 +187,7 @@ export function AppSidebar() {
                   {user.first_name} {user.last_name}
                 </div>
                 <Badge className={`text-[9px] px-1.5 py-0 font-semibold mt-0.5 border ${roleBadge[user.role] || ""}`}>
-                  {user.role}
+                  {roleLabel(user.role)}
                 </Badge>
               </div>
             </div>

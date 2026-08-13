@@ -10,6 +10,10 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+function isAdminRole(role: string) {
+  return role === "ADMIN" || role === "HR_MANAGER";
+}
+
 function isUUID(v: unknown): boolean {
   return typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
@@ -90,7 +94,7 @@ serve(async (req) => {
 
     // ── POST /groups — create group (admin only) ──
     if (resource === "groups" && req.method === "POST" && !resourceId) {
-      if (userRole !== "ADMIN") return json({ error: "Only admins can create groups" }, 403);
+      if (!isAdminRole(userRole)) return json({ error: "Only admins can create groups" }, 403);
       const body = await req.json().catch(() => ({}));
       const name = typeof body.name === "string" ? body.name.trim() : "";
       if (!name || name.length > 200) return json({ error: "Name required (1-200 chars)" }, 400);
@@ -201,7 +205,7 @@ serve(async (req) => {
         .eq("group_id", resourceId)
         .eq("user_id", userId)
         .maybeSingle();
-      if (!mem && userRole !== "ADMIN") return json({ error: "Not a member" }, 403);
+      if (!mem && !isAdminRole(userRole)) return json({ error: "Not a member" }, 403);
 
       const { data: members, error } = await supabase
         .from("chat_group_members")
@@ -227,7 +231,7 @@ serve(async (req) => {
 
     // ── POST /groups/:id/members — add members (admin only) ──
     if (resource === "groups" && resourceId && subResource === "members" && req.method === "POST") {
-      if (userRole !== "ADMIN") return json({ error: "Only admins can add members" }, 403);
+      if (!isAdminRole(userRole)) return json({ error: "Only admins can add members" }, 403);
       if (!isUUID(resourceId)) return json({ error: "Invalid group ID" }, 400);
 
       const body = await req.json().catch(() => ({}));
@@ -242,7 +246,7 @@ serve(async (req) => {
 
     // ── DELETE /groups/:id/members — remove member (admin only) ──
     if (resource === "groups" && resourceId && subResource === "members" && req.method === "DELETE") {
-      if (userRole !== "ADMIN") return json({ error: "Only admins can remove members" }, 403);
+      if (!isAdminRole(userRole)) return json({ error: "Only admins can remove members" }, 403);
       if (!isUUID(resourceId)) return json({ error: "Invalid group ID" }, 400);
 
       const body = await req.json().catch(() => ({}));
@@ -268,7 +272,7 @@ serve(async (req) => {
         .eq("group_id", resourceId)
         .eq("user_id", userId)
         .maybeSingle();
-      if (!mem && userRole !== "ADMIN") return json({ error: "Not a member" }, 403);
+      if (!mem && !isAdminRole(userRole)) return json({ error: "Not a member" }, 403);
 
       const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
       const before = url.searchParams.get("before"); // cursor pagination

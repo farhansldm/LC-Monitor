@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { chatApi, ChatGroup, ChatMessage, ChatMember } from "@/lib/chat-api";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -222,7 +223,7 @@ export default function ChatsPage() {
     }
   };
 
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = isAdminRole(user?.role);
 
   // WebRTC calling
   const webrtc = useWebRTC({

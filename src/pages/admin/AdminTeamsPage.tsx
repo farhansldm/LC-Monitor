@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/admin-api";
+import { isManagerOrAbove, roleLabel } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,7 +76,7 @@ export default function AdminTeamsPage() {
 
   const teams: Team[] = teamsData?.teams ?? [];
   const allUsers: User[] = usersData?.users ?? [];
-  const managers = allUsers.filter((u) => u.role === "MANAGER" || u.role === "ADMIN");
+  const managers = allUsers.filter((u) => isManagerOrAbove(u.role));
 
   // Members query for expanded team
   const { data: membersData } = useQuery({
@@ -182,10 +183,11 @@ export default function AdminTeamsPage() {
   const roleBadge = (r: string) => {
     const cls: Record<string, string> = {
       ADMIN: "bg-destructive/15 text-destructive border-destructive/30",
+      HR_MANAGER: "bg-accent/15 text-accent border-accent/30",
       MANAGER: "bg-info/15 text-info border-info/30",
       EMPLOYEE: "bg-primary/15 text-primary border-primary/30",
     };
-    return <Badge className={cls[r] || ""} variant="outline">{r}</Badge>;
+    return <Badge className={cls[r] || ""} variant="outline">{roleLabel(r)}</Badge>;
   };
 
   return (

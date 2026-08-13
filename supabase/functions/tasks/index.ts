@@ -104,7 +104,7 @@ serve(async (req) => {
       } else if (userRole === "MANAGER" && userTeamId) {
         query = query.eq("team_id", userTeamId);
       }
-      // ADMIN sees all
+      // ADMIN / HR_MANAGER see all
 
       if (status && VALID_STATUSES.includes(status)) {
         query = query.eq("status", status);

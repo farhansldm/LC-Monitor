@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { workSessionsApi } from "@/lib/work-sessions-api";
 import { adminApi } from "@/lib/admin-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,7 +64,7 @@ export default function BrowserHistoryPage() {
   const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = isAdminRole(user?.role);
   const isManager = user?.role === "MANAGER";
   const canAccess = isAdmin || isManager;
 

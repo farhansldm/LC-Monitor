@@ -1,3 +1,5 @@
+import { UserRole } from "@/lib/roles";
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
@@ -15,7 +17,7 @@ export interface AuthUser {
   email: string;
   first_name: string;
   last_name: string;
-  role: "EMPLOYEE" | "MANAGER" | "ADMIN";
+  role: UserRole;
   team_id: string | null;
   monitor_token?: string | null;
 }

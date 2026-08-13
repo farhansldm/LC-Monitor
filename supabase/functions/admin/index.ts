@@ -32,7 +32,11 @@ function validatePassword(v: unknown): string | null {
   if (v.length < 8 || v.length > 128) return null;
   return v;
 }
-const VALID_ROLES = ["EMPLOYEE", "MANAGER", "ADMIN"];
+function isAdminRole(role: unknown) {
+  return role === "ADMIN" || role === "HR_MANAGER";
+}
+
+const VALID_ROLES = ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"];
 function validateRole(v: unknown): string | null {
   if (typeof v !== "string" || !VALID_ROLES.includes(v)) return null;
   return v;
@@ -91,7 +95,7 @@ async function requireAdmin(req: Request, jwtSecret: string) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
   const claims = await verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
-  if (!claims || claims.role !== "ADMIN") return null;
+  if (!claims || !isAdminRole(claims.role)) return null;
   return claims;
 }
 
@@ -162,7 +166,7 @@ serve(async (req) => {
           : null;
 
         if (!email || !password || !first_name || !last_name || !role || !status) {
-          return json({ error: "Valid email, password (8-128 chars), first_name, last_name are required. Role must be EMPLOYEE/MANAGER/ADMIN." }, 400);
+          return json({ error: "Valid email, password (8-128 chars), first_name, last_name are required. Role must be EMPLOYEE/MANAGER/ADMIN/HR_MANAGER." }, 400);
         }
 
         const password_hash = await hashPasswordPBKDF2(password);
@@ -200,7 +204,7 @@ serve(async (req) => {
         }
         if (body.role !== undefined) {
           const v = validateRole(body.role);
-          if (!v) return json({ error: "Role must be EMPLOYEE, MANAGER, or ADMIN" }, 400);
+          if (!v) return json({ error: "Role must be EMPLOYEE, MANAGER, ADMIN, or HR_MANAGER" }, 400);
           updates.role = v;
         }
         if (body.status !== undefined) {

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminApi } from "@/lib/admin-api";
+import { roleLabel } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,10 +43,11 @@ const TeamPage = () => {
   const roleBadge = (r: string) => {
     const cls: Record<string, string> = {
       ADMIN: "bg-destructive/15 text-destructive border-destructive/30",
+      HR_MANAGER: "bg-accent/15 text-accent border-accent/30",
       MANAGER: "bg-info/15 text-info border-info/30",
       EMPLOYEE: "bg-primary/15 text-primary border-primary/30",
     };
-    return <Badge className={cls[r] || ""} variant="outline">{r}</Badge>;
+    return <Badge className={cls[r] || ""} variant="outline">{roleLabel(r)}</Badge>;
   };
 
   return (

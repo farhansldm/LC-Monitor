@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/admin-api";
 import { workSessionsApi } from "@/lib/work-sessions-api";
+import { isAdminRole } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -325,11 +326,9 @@ function AdminDashboard() {
 const Dashboard = () => {
   const { user } = useAuth();
   if (!user) return null;
-  switch (user.role) {
-    case "ADMIN": return <AdminDashboard />;
-    case "MANAGER": return <ManagerDashboard />;
-    default: return <EmployeeDashboard />;
-  }
+  if (isAdminRole(user.role)) return <AdminDashboard />;
+  if (user.role === "MANAGER") return <ManagerDashboard />;
+  return <EmployeeDashboard />;
 };
 
 export default Dashboard;
