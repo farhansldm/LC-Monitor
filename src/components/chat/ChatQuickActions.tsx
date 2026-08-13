@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Users, CalendarCheck, FileText } from "lucide-react";
+import { Users, CalendarCheck, FileText, Palmtree, CalendarClock } from "lucide-react";
 
 export interface QuickAction {
   label: string;
@@ -24,6 +24,16 @@ const defaultQuickActions: QuickAction[] = [
     label: "Explain my timesheet",
     icon: <FileText className="h-3.5 w-3.5" />,
     message: "Explain my timesheet",
+  },
+  {
+    label: "My leave",
+    icon: <Palmtree className="h-3.5 w-3.5" />,
+    message: "Show my leave requests",
+  },
+  {
+    label: "My shift",
+    icon: <CalendarClock className="h-3.5 w-3.5" />,
+    message: "What's my shift?",
   },
 ];
 
