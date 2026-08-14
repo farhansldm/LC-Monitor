@@ -15,6 +15,11 @@ import {
   Camera,
   Palmtree,
   CalendarClock,
+  Building2,
+  BarChart3,
+  FileBarChart,
+  ScrollText,
+  Network,
 } from "lucide-react";
 import companyLogo from "@/assets/lemoncode-logo.png";
 import { NavLink } from "@/components/NavLink";
@@ -40,6 +45,8 @@ const navItems = [
   { title: "My Timesheet", url: "/timesheet", icon: Clock, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Attendance", url: "/attendance", icon: CalendarCheck, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Leave Requests", url: "/leave", icon: Palmtree, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Reports", url: "/reports", icon: FileBarChart, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "Policies", url: "/policies", icon: ScrollText, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Chats", url: "/chats", icon: MessageSquare, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Tasks", url: "/tasks", icon: ClipboardList, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Team", url: "/team", icon: Users, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
@@ -53,6 +60,10 @@ const adminItems = [
   { title: "Teams", url: "/admin/teams", icon: UsersRound },
   { title: "History", url: "/admin/browser-history", icon: Globe },
   { title: "Shifts", url: "/admin/shifts", icon: CalendarClock },
+  { title: "Departments", url: "/admin/departments", icon: Building2 },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+  { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollText },
+  { title: "Trusted IPs", url: "/admin/ip-config", icon: Network },
 ];
 
 export function AppSidebar() {

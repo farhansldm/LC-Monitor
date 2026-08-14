@@ -40,6 +40,7 @@ interface User {
   role: string;
   status: string;
   team_id: string | null;
+  department_id: string | null;
   job_title: string | null;
   created_at: string;
 }
@@ -56,6 +57,7 @@ const emptyForm = {
   last_name: "",
   role: "EMPLOYEE",
   team_id: "",
+  department_id: "",
   status: "ACTIVE",
   job_title: "",
 };
@@ -79,8 +81,14 @@ export default function AdminUsersPage() {
     queryFn: adminApi.getTeams,
   });
 
+  const { data: deptsData } = useQuery({
+    queryKey: ["admin-departments"],
+    queryFn: adminApi.getDepartments,
+  });
+
   const users: User[] = usersData?.users ?? [];
   const teams: Team[] = teamsData?.teams ?? [];
+  const departments: Array<{ id: string; name: string }> = deptsData?.departments ?? [];
 
   const createMut = useMutation({
     mutationFn: adminApi.createUser,
@@ -123,6 +131,7 @@ export default function AdminUsersPage() {
       last_name: u.last_name,
       role: u.role,
       team_id: u.team_id ?? "",
+      department_id: u.department_id ?? "",
       status: u.status,
       job_title: u.job_title ?? "",
     });
@@ -139,6 +148,7 @@ export default function AdminUsersPage() {
         role: form.role,
         status: form.status,
         team_id: form.team_id || null,
+        department_id: form.department_id || null,
         job_title: form.job_title.trim() || null,
       };
       if (form.password) body.password = form.password;
@@ -151,6 +161,7 @@ export default function AdminUsersPage() {
         last_name: form.last_name,
         role: form.role,
         team_id: form.team_id || null,
+        department_id: form.department_id || null,
         status: form.status,
         job_title: form.job_title.trim() || null,
       } as Parameters<typeof createMut.mutate>[0]);
@@ -259,6 +270,18 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Department</Label>
+                  <Select value={form.department_id} onValueChange={(v) => setForm({ ...form, department_id: v === "_none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="No department" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">No department</SelectItem>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label>Team</Label>
                   <Select value={form.team_id} onValueChange={(v) => setForm({ ...form, team_id: v === "_none" ? "" : v })}>
                     <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
@@ -303,6 +326,7 @@ export default function AdminUsersPage() {
                   <TableHead>Job Title</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -314,6 +338,27 @@ export default function AdminUsersPage() {
                     <TableCell className="text-muted-foreground">{u.job_title || "—"}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>{roleBadge(u.role)}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={u.department_id || "_none"}
+                        onValueChange={(v) =>
+                          updateMut.mutate({
+                            id: u.id,
+                            department_id: v === "_none" ? null : v,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-[140px] text-xs">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">None</SelectItem>
+                          {departments.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>{statusBadge(u.status)}</TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button size="icon" variant="ghost" onClick={() => openEdit(u)}>

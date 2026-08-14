@@ -24,6 +24,12 @@ import NotFound from "@/pages/NotFound";
 import AdminBrowserHistoryPage from "@/pages/admin/BrowserHistoryPage";
 import LeaveRequestsPage from "@/pages/LeaveRequestsPage";
 import ShiftSchedulingPage from "@/pages/admin/ShiftSchedulingPage";
+import DepartmentsPage from "@/pages/admin/DepartmentsPage";
+import AnalyticsPage from "@/pages/admin/AnalyticsPage";
+import ReportsPage from "@/pages/ReportsPage";
+import PoliciesPage from "@/pages/PoliciesPage";
+import AuditLogsPage from "@/pages/admin/AuditLogsPage";
+import IpConfigPage from "@/pages/admin/IpConfigPage";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +53,8 @@ const App = () => (
             <Route path="/timesheet" element={<ProtectedPage><TimesheetPage /></ProtectedPage>} />
             <Route path="/attendance" element={<ProtectedPage><AttendancePage /></ProtectedPage>} />
             <Route path="/leave" element={<ProtectedPage><LeaveRequestsPage /></ProtectedPage>} />
+            <Route path="/reports" element={<ProtectedPage><ReportsPage /></ProtectedPage>} />
+            <Route path="/policies" element={<ProtectedPage><PoliciesPage /></ProtectedPage>} />
             <Route path="/chats" element={<ProtectedPage><ChatsPage /></ProtectedPage>} />
             <Route path="/tasks" element={<ProtectedPage><TasksPage /></ProtectedPage>} />
             <Route path="/team" element={<ProtectedPage><TeamPage /></ProtectedPage>} />
@@ -57,6 +65,10 @@ const App = () => (
             <Route path="/admin/teams" element={<ProtectedPage><AdminTeamsPage /></ProtectedPage>} />
             <Route path="/admin/browser-history" element={<ProtectedPage><AdminBrowserHistoryPage /></ProtectedPage>} />
             <Route path="/admin/shifts" element={<ProtectedPage><ShiftSchedulingPage /></ProtectedPage>} />
+            <Route path="/admin/departments" element={<ProtectedPage><DepartmentsPage /></ProtectedPage>} />
+            <Route path="/admin/analytics" element={<ProtectedPage><AnalyticsPage /></ProtectedPage>} />
+            <Route path="/admin/audit-logs" element={<ProtectedPage><AuditLogsPage /></ProtectedPage>} />
+            <Route path="/admin/ip-config" element={<ProtectedPage><IpConfigPage /></ProtectedPage>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -32,6 +32,9 @@ export const workSessionsApi = {
   getHistory: (days = 14) => request(`history?days=${days}`),
   updateNotes: (session_id: string, notes: string) =>
     request("notes", { method: "PATCH", body: JSON.stringify({ session_id, notes }) }),
+  updateManagerComment: (session_id: string, comment: string) =>
+    request("manager-comment", { method: "PATCH", body: JSON.stringify({ session_id, comment }) }),
+  getPolicies: () => request("policies"),
   getBrowserHistory: (userId: string, date: string) =>
     request(`browser-history?user_id=${userId}&date=${date}`),
   addBrowserHistory: (history: Array<{ url: string; title?: string; duration_seconds: number; visited_at: string; session_id?: string }>) =>

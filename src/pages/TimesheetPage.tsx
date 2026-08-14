@@ -4,8 +4,9 @@ import { workSessionsApi } from "@/lib/work-sessions-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, PlayCircle, StopCircle, FileText, Save, History } from "lucide-react";
+import { Clock, PlayCircle, StopCircle, FileText, Save, History, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { exportToCsv } from "@/lib/reports-api";
 
 type SessionRow = {
   id: string;
@@ -85,6 +86,27 @@ const TimesheetPage = () => {
           <p className="page-subheading">Track sessions and log what you worked on</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            id="export-timesheet-csv"
+            variant="outline"
+            className="gap-2 rounded-xl h-10"
+            disabled={!history?.sessions?.length}
+            onClick={() => {
+              const sessions = (history?.sessions ?? []) as SessionRow[];
+              exportToCsv(
+                sessions.map((s) => ({
+                  Date: s.date,
+                  "Clock In": s.start_time,
+                  "Clock Out": s.end_time || "",
+                  Hours: (s.total_active_seconds / 3600).toFixed(2),
+                  Notes: s.notes || "",
+                })),
+                "timesheet.csv",
+              );
+            }}
+          >
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
           <Button
             className="gap-2 rounded-xl h-10"
             onClick={() => clockInMut.mutate()}

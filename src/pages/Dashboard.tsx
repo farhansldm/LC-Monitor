@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/admin-api";
 import { workSessionsApi } from "@/lib/work-sessions-api";
 import { isAdminRole } from "@/lib/roles";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Clock, Users, CalendarCheck, AlertTriangle, Activity, Timer, UsersRound, Coffee, TrendingUp, Home, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 function StatCard({
   title, value, subtitle, icon: Icon,
@@ -46,17 +47,130 @@ function StatCard({
 }
 
 function EmployeeDashboard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [elapsed, setElapsed] = useState(0);
+
+  const { data } = useQuery({
+    queryKey: ["work-session-status"],
+    queryFn: workSessionsApi.getStatus,
+    refetchInterval: 30000,
+  });
+  const { data: historyData } = useQuery({
+    queryKey: ["work-history-week"],
+    queryFn: () => workSessionsApi.getHistory(7),
+  });
+
+  const session = data?.session ?? null;
+  const isWorking = data?.is_working ?? false;
+  const onBreak = data?.on_break ?? false;
+  const activeBreak = data?.active_break ?? null;
+  const breaks = data?.breaks ?? [];
+  const totalCompletedSeconds = data?.total_completed_seconds ?? 0;
+  const loginType = (session?.login_type as "WFH" | "SITE" | null | undefined) ?? null;
+
+  useEffect(() => {
+    if (!isWorking || !session?.start_time) {
+      setElapsed(totalCompletedSeconds);
+      return;
+    }
+    const startTime = new Date(session.start_time).getTime();
+    const tick = () => {
+      const now = Date.now();
+      const currentSessionSec = Math.floor((now - startTime) / 1000);
+      const sessionBreaks = breaks.filter((b: { session_id: string }) => b.session_id === session.id);
+      const completedBreakSec = sessionBreaks
+        .filter((b: { break_end: string | null }) => b.break_end)
+        .reduce((sum: number, b: { duration_seconds: number }) => sum + b.duration_seconds, 0);
+      const currentBreakSec = onBreak && activeBreak
+        ? Math.floor((now - new Date(activeBreak.break_start).getTime()) / 1000)
+        : 0;
+      setElapsed(totalCompletedSeconds + Math.max(0, currentSessionSec - completedBreakSec - currentBreakSec));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isWorking, session?.start_time, session?.id, totalCompletedSeconds, onBreak, activeBreak, breaks]);
+
+  const weekSeconds = (historyData?.sessions ?? []).reduce(
+    (sum: number, s: { total_active_seconds?: number }) => sum + (s.total_active_seconds || 0),
+    0,
+  );
+  const weekDisplay = isWorking ? weekSeconds + Math.max(0, elapsed - totalCompletedSeconds) : weekSeconds;
+
+  const clockInMut = useMutation({
+    mutationFn: workSessionsApi.clockIn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["work-session-status"] });
+      qc.invalidateQueries({ queryKey: ["work-history-week"] });
+    },
+    onError: (e: Error) => toast({ title: "Clock in failed", description: e.message, variant: "destructive" }),
+  });
+  const clockOutMut = useMutation({
+    mutationFn: workSessionsApi.clockOut,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["work-session-status"] });
+      qc.invalidateQueries({ queryKey: ["work-history-week"] });
+    },
+    onError: (e: Error) => toast({ title: "Clock out failed", description: e.message, variant: "destructive" }),
+  });
+
+  const greeting = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening";
+  const statusLabel = isWorking ? (onBreak ? "On Break" : "Clocked In") : "Not Clocked In";
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="page-heading">Good morning!</h1>
-        <p className="page-subheading">Here's your workday overview</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="page-heading">Good {greeting}{user?.first_name ? `, ${user.first_name}` : ""}!</h1>
+          <p className="page-subheading">Here's your workday overview</p>
+        </div>
+        <div className="flex gap-2">
+          {!isWorking ? (
+            <Button id="dash-clock-in" onClick={() => clockInMut.mutate()} disabled={clockInMut.isPending} className="gap-2">
+              Clock In
+            </Button>
+          ) : (
+            <Button id="dash-clock-out" variant="destructive" onClick={() => clockOutMut.mutate()} disabled={clockOutMut.isPending || onBreak} className="gap-2">
+              Clock Out
+            </Button>
+          )}
+          <Button id="dash-open-workday" variant="outline" onClick={() => navigate("/employee")}>
+            Full workday
+          </Button>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard title="Today's Status" value="Not Clocked In" subtitle="Clock in to start tracking" icon={Clock} />
-        <StatCard title="Hours Today" value="0h 0m" subtitle="Active time" icon={Timer} iconColor="text-accent" iconBg="bg-accent/8" />
-        <StatCard title="This Week" value="0h 0m" subtitle="of 40h target" icon={TrendingUp} iconColor="text-info" iconBg="bg-info/8" />
+        <StatCard
+          title="Today's Status"
+          value={statusLabel}
+          subtitle={loginType ? (loginType === "WFH" ? "Working from home" : "On site") : "Clock in to start tracking"}
+          icon={Clock}
+        />
+        <StatCard
+          title="Hours Today"
+          value={formatDuration(elapsed)}
+          subtitle="Active time"
+          icon={Timer}
+          iconColor="text-accent"
+          iconBg="bg-accent/8"
+        />
+        <StatCard
+          title="This Week"
+          value={formatDuration(weekDisplay)}
+          subtitle="of 40h target"
+          icon={TrendingUp}
+          iconColor="text-info"
+          iconBg="bg-info/8"
+        />
       </div>
+      {isWorking && loginType && (
+        <Badge className={loginType === "WFH" ? "bg-info/10 text-info border-info/20" : "bg-accent/10 text-accent border-accent/20"}>
+          {loginType === "WFH" ? <><Home className="h-3 w-3 mr-1" /> WFH</> : <><Building2 className="h-3 w-3 mr-1" /> SITE</>}
+        </Badge>
+      )}
     </div>
   );
 }

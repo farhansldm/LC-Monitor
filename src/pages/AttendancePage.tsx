@@ -28,7 +28,9 @@ import {
   ClipboardList,
   UserCheck,
   TrendingUp,
+  Download,
 } from "lucide-react";
+import { exportToCsv } from "@/lib/reports-api";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -276,12 +278,34 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div>
-        <h1 className="page-heading flex items-center gap-2.5">
-          <CalendarCheck className="h-7 w-7 text-primary" />
-          Attendance
-        </h1>
-        <p className="page-subheading">Monthly attendance overview, records, and correction requests</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="page-heading flex items-center gap-2.5">
+            <CalendarCheck className="h-7 w-7 text-primary" />
+            Attendance
+          </h1>
+          <p className="page-subheading">Monthly attendance overview, records, and correction requests</p>
+        </div>
+        <Button
+          id="export-attendance-csv"
+          variant="outline"
+          className="gap-2"
+          disabled={!records.length}
+          onClick={() => {
+            exportToCsv(
+              records.map((r) => ({
+                Date: r.date,
+                Status: r.status,
+                "Clock In": r.clock_in || "",
+                "Clock Out": r.clock_out || "",
+                Hours: r.total_hours ?? "",
+              })),
+              `attendance-${viewYear}-${String(viewMonth).padStart(2, "0")}.csv`,
+            );
+          }}
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </Button>
       </div>
 
       {/* ─── Summary Stats ─── */}

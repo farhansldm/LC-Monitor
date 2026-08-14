@@ -295,6 +295,14 @@ serve(async (req) => {
         .select("id, start_time, end_time, total_active_seconds, date, ip_address, login_type, late_flag, early_flag")
         .single();
       if (error) throw error;
+
+      await supabase.from("events").insert({
+        user_id: userId,
+        type: "MANUAL_CLOCK_IN",
+        timestamp: now.toISOString(),
+        metadata: { session_id: session.id, ip: ipAddress, login_type: loginType, late: lateFlag },
+      }).then(() => undefined);
+
       return json({ session, is_working: true, login_type: loginType, ip_address: ipAddress, late_flag: lateFlag }, 201);
     }
 
@@ -375,6 +383,15 @@ serve(async (req) => {
         if (updateErr) throw updateErr;
         closedSessions.push(updated);
       }
+
+      await supabase.from("events").insert(
+        closedSessions.map((s: { id: string }) => ({
+          user_id: userId,
+          type: "MANUAL_CLOCK_OUT",
+          timestamp: now.toISOString(),
+          metadata: { session_id: s.id, early: earlyFlag },
+        })),
+      ).then(() => undefined);
 
       return json({
         session: closedSessions[0],
@@ -635,6 +652,60 @@ serve(async (req) => {
         .single();
       if (error) throw error;
       return json({ session: data });
+    }
+
+    // PATCH /work-sessions/manager-comment — manager/admin annotate a session
+    if (action === "manager-comment" && (req.method === "PATCH" || req.method === "POST")) {
+      if (!isManagerOrAbove(userRole)) return json({ error: "Forbidden" }, 403);
+      const body = await req.json().catch(() => ({}));
+      const sessionId = body?.session_id;
+      const comment = body?.comment;
+      if (!isUUID(sessionId)) return json({ error: "Invalid session_id" }, 400);
+      if (comment !== null && comment !== undefined && (typeof comment !== "string" || comment.length > 2000)) {
+        return json({ error: "Comment must be a string up to 2000 chars" }, 400);
+      }
+
+      const { data: existing } = await supabase
+        .from("work_sessions")
+        .select("id, user_id")
+        .eq("id", sessionId)
+        .maybeSingle();
+      if (!existing) return json({ error: "Not found" }, 404);
+
+      if (userRole === "MANAGER") {
+        const { data: mgr } = await supabase.from("users").select("team_id").eq("id", userId).single();
+        const { data: member } = await supabase.from("users").select("team_id").eq("id", existing.user_id).single();
+        if (!mgr?.team_id || mgr.team_id !== member?.team_id) {
+          return json({ error: "Forbidden" }, 403);
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("work_sessions")
+        .update({ manager_comment: typeof comment === "string" ? comment.trim() || null : null })
+        .eq("id", sessionId)
+        .select("id, manager_comment")
+        .single();
+      if (error) throw error;
+
+      await supabase.from("events").insert({
+        user_id: userId,
+        type: "ACTIVITY",
+        timestamp: new Date().toISOString(),
+        metadata: { action: "manager_comment", session_id: sessionId, target_user_id: existing.user_id },
+      }).then(() => undefined);
+
+      return json({ session: data });
+    }
+
+    // GET /work-sessions/policies — company policies (all authenticated roles)
+    if (action === "policies" && req.method === "GET") {
+      const { data, error } = await supabase
+        .from("policies")
+        .select("id, title, content, updated_at, created_at")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return json({ policies: data || [] });
     }
 
     // POST /work-sessions/browser-history — insert browser history records
@@ -1513,6 +1584,201 @@ serve(async (req) => {
         .single();
       if (error) throw error;
       return json({ assignment });
+    }
+
+    // ─── GET /work-sessions/departments (MANAGER+) ───────────────────────────
+    if (action === "departments" && req.method === "GET") {
+      if (!isManagerOrAbove(userRole)) return json({ error: "Forbidden" }, 403);
+      const { data, error } = await supabase
+        .from("departments")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return json({ departments: data || [] });
+    }
+
+    // ─── GET /work-sessions/reports ──────────────────────────────────────────
+    if (action === "reports" && req.method === "GET") {
+      if (!isManagerOrAbove(userRole)) return json({ error: "Forbidden" }, 403);
+
+      const from = url.searchParams.get("from") || todayDate().slice(0, 8) + "01";
+      const to = url.searchParams.get("to") || todayDate();
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRe.test(from) || !dateRe.test(to)) {
+        return json({ error: "from and to must be YYYY-MM-DD" }, 400);
+      }
+
+      const filterUserId = url.searchParams.get("user_id");
+      const filterDeptId = url.searchParams.get("department_id");
+      const statusFilter = (url.searchParams.get("status") || "").toUpperCase();
+
+      let usersQuery = supabase
+        .from("users")
+        .select("id, first_name, last_name, email, team_id, department_id, status")
+        .eq("status", "ACTIVE");
+
+      if (!isAdminRole(userRole)) {
+        if (!userTeamId) return json({ rows: [], message: "No team assigned" });
+        usersQuery = usersQuery.eq("team_id", userTeamId);
+      }
+      if (filterUserId && isUUID(filterUserId)) usersQuery = usersQuery.eq("id", filterUserId);
+      if (filterDeptId && isUUID(filterDeptId)) usersQuery = usersQuery.eq("department_id", filterDeptId);
+
+      const { data: users, error: usersErr } = await usersQuery;
+      if (usersErr) throw usersErr;
+      const userList = users || [];
+      if (userList.length === 0) return json({ rows: [] });
+
+      const userIds = userList.map((u: { id: string }) => u.id);
+      const usersById = Object.fromEntries(
+        userList.map((u: { id: string; first_name: string; last_name: string; email: string; department_id: string | null }) => [u.id, u])
+      );
+
+      const { data: depts } = await supabase.from("departments").select("id, name");
+      const deptName: Record<string, string> = {};
+      (depts || []).forEach((d: { id: string; name: string }) => { deptName[d.id] = d.name; });
+
+      const { data: sessions, error: sessErr } = await supabase
+        .from("work_sessions")
+        .select("id, user_id, date, start_time, end_time, total_active_seconds, ip_address, login_type, late_flag, early_flag, notes, manager_comment")
+        .in("user_id", userIds)
+        .gte("date", from)
+        .lte("date", to)
+        .order("date", { ascending: false })
+        .order("start_time", { ascending: false });
+      if (sessErr) throw sessErr;
+
+      const sessionIds = (sessions || []).map((s: { id: string }) => s.id);
+      let breakBySession: Record<string, number> = {};
+      if (sessionIds.length > 0) {
+        const { data: breaks } = await supabase
+          .from("breaks")
+          .select("session_id, duration_seconds, break_start, break_end")
+          .in("session_id", sessionIds);
+        const now = Date.now();
+        (breaks || []).forEach((b: { session_id: string; duration_seconds?: number; break_start: string; break_end: string | null }) => {
+          const dur = b.break_end
+            ? (b.duration_seconds || 0)
+            : Math.max(0, Math.floor((now - new Date(b.break_start).getTime()) / 1000));
+          breakBySession[b.session_id] = (breakBySession[b.session_id] || 0) + dur;
+        });
+      }
+
+      const rows = (sessions || []).map((s: {
+        id: string; user_id: string; date: string; start_time: string; end_time: string | null;
+        total_active_seconds: number; ip_address?: string | null; login_type?: string | null;
+        late_flag?: boolean; early_flag?: boolean; notes?: string | null; manager_comment?: string | null;
+      }) => {
+        const u = usersById[s.user_id];
+        const breakSec = breakBySession[s.id] || 0;
+        let hours = s.total_active_seconds || 0;
+        if (!s.end_time && s.start_time) {
+          hours = Math.max(0, Math.floor((Date.now() - new Date(s.start_time).getTime()) / 1000) - breakSec);
+        }
+        return {
+          session_id: s.id,
+          user_id: s.user_id,
+          employee: u ? `${u.first_name} ${u.last_name}` : "Unknown",
+          email: u?.email ?? "",
+          department: u?.department_id ? (deptName[u.department_id] || "") : "",
+          date: s.date,
+          clock_in: s.start_time,
+          clock_out: s.end_time,
+          total_hours: Math.round((hours / 3600) * 100) / 100,
+          break_seconds: breakSec,
+          late: !!s.late_flag,
+          early: !!s.early_flag,
+          ip_address: s.ip_address || "",
+          login_type: s.login_type || "",
+          notes: s.notes || "",
+          manager_comment: s.manager_comment || "",
+        };
+      }).filter((row) => {
+        if (!statusFilter || statusFilter === "ALL") return true;
+        if (statusFilter === "WFH") return row.login_type === "WFH";
+        if (statusFilter === "SITE") return row.login_type === "SITE";
+        if (statusFilter === "LATE") return row.late;
+        if (statusFilter === "EARLY") return row.early;
+        return true;
+      });
+
+      return json({ rows, from, to });
+    }
+
+    // ─── GET /work-sessions/analytics ────────────────────────────────────────
+    if (action === "analytics" && req.method === "GET") {
+      if (!isAdminRole(userRole)) return json({ error: "Forbidden" }, 403);
+
+      const now = new Date();
+      const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+      const monthEnd = todayDate();
+
+      const { data: sessions, error } = await supabase
+        .from("work_sessions")
+        .select("date, total_active_seconds, end_time, start_time, late_flag, early_flag, login_type")
+        .gte("date", monthStart)
+        .lte("date", monthEnd);
+      if (error) throw error;
+
+      const list = sessions || [];
+      let totalSec = 0;
+      let lateCount = 0;
+      let earlyCount = 0;
+      let wfh = 0;
+      let site = 0;
+      const byDate: Record<string, number> = {};
+
+      list.forEach((s: {
+        date: string; total_active_seconds?: number; end_time: string | null; start_time: string;
+        late_flag?: boolean; early_flag?: boolean; login_type?: string | null;
+      }) => {
+        let sec = s.total_active_seconds || 0;
+        if (!s.end_time && s.start_time) {
+          sec = Math.max(0, Math.floor((Date.now() - new Date(s.start_time).getTime()) / 1000));
+        }
+        totalSec += sec;
+        byDate[s.date] = (byDate[s.date] || 0) + sec;
+        if (s.late_flag) lateCount++;
+        if (s.early_flag) earlyCount++;
+        if (s.login_type === "WFH") wfh++;
+        if (s.login_type === "SITE") site++;
+      });
+
+      const workDays = Object.keys(byDate).length || 1;
+      const { data: breaks } = await supabase
+        .from("breaks")
+        .select("duration_seconds, date")
+        .gte("date", monthStart)
+        .lte("date", monthEnd);
+      const breakList = breaks || [];
+      const totalBreak = breakList.reduce((sum: number, b: { duration_seconds?: number }) => sum + (b.duration_seconds || 0), 0);
+      const avgBreak = breakList.length ? Math.round(totalBreak / breakList.length) : 0;
+
+      const { count: leaveCount } = await supabase
+        .from("leave_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "APPROVED")
+        .gte("date", monthStart)
+        .lte("date", monthEnd);
+
+      const daily = Object.keys(byDate).sort().map((date) => ({
+        date,
+        hours: Math.round((byDate[date] / 3600) * 10) / 10,
+      }));
+
+      return json({
+        month_start: monthStart,
+        month_end: monthEnd,
+        total_hours: Math.round((totalSec / 3600) * 10) / 10,
+        avg_hours_per_day: Math.round((totalSec / workDays / 3600) * 10) / 10,
+        avg_break_seconds: avgBreak,
+        late_count: lateCount,
+        early_count: earlyCount,
+        wfh_count: wfh,
+        site_count: site,
+        leave_count: leaveCount ?? 0,
+        daily,
+      });
     }
 
     return json({ error: "Not found" }, 404);

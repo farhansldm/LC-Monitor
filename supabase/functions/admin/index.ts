@@ -36,6 +36,15 @@ function isAdminRole(role: unknown) {
   return role === "ADMIN" || role === "HR_MANAGER";
 }
 
+function isValidCidr(v: string): boolean {
+  const m = v.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/);
+  if (!m) return false;
+  const octets = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+  const prefix = Number(m[5]);
+  if (octets.some((n) => n > 255)) return false;
+  return prefix >= 0 && prefix <= 32;
+}
+
 const VALID_ROLES = ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"];
 function validateRole(v: unknown): string | null {
   if (typeof v !== "string" || !VALID_ROLES.includes(v)) return null;
@@ -126,6 +135,7 @@ serve(async (req) => {
   try {
     const claims = await requireAdmin(req, jwtSecret);
     if (!claims) return json({ error: "Forbidden" }, 403);
+    const actorId = claims.sub as string;
 
     // ── Stats ──
     if (resource === "stats" && req.method === "GET") {
@@ -146,7 +156,7 @@ serve(async (req) => {
       if (req.method === "GET" && !resourceId) {
         const { data, error } = await supabase
           .from("users")
-          .select("id, email, first_name, last_name, role, status, team_id, job_title, created_at")
+          .select("id, email, first_name, last_name, role, status, team_id, department_id, job_title, created_at")
           .order("created_at", { ascending: false });
         if (error) throw error;
         return json({ users: data });
@@ -161,6 +171,7 @@ serve(async (req) => {
         const role = body.role ? validateRole(body.role) : "EMPLOYEE";
         const status = body.status ? validateStatus(body.status) : "ACTIVE";
         const team_id = body.team_id && isUUID(body.team_id) ? body.team_id : null;
+        const department_id = body.department_id && isUUID(body.department_id) ? body.department_id : null;
         const job_title = typeof body.job_title === "string" && body.job_title.trim().length > 0
           ? body.job_title.trim().slice(0, 100)
           : null;
@@ -172,8 +183,8 @@ serve(async (req) => {
         const password_hash = await hashPasswordPBKDF2(password);
         const { data, error } = await supabase
           .from("users")
-          .insert({ email, password_hash, first_name, last_name, role, team_id, status, job_title })
-          .select("id, email, first_name, last_name, role, status, team_id, job_title, created_at")
+          .insert({ email, password_hash, first_name, last_name, role, team_id, department_id, status, job_title })
+          .select("id, email, first_name, last_name, role, status, team_id, department_id, job_title, created_at")
           .single();
         if (error) {
           if (error.code === "23505") return json({ error: "Email already exists" }, 409);
@@ -215,6 +226,9 @@ serve(async (req) => {
         if (body.team_id !== undefined) {
           updates.team_id = body.team_id && isUUID(body.team_id) ? body.team_id : null;
         }
+        if (body.department_id !== undefined) {
+          updates.department_id = body.department_id && isUUID(body.department_id) ? body.department_id : null;
+        }
         if (body.job_title !== undefined) {
           updates.job_title = typeof body.job_title === "string" && body.job_title.trim().length > 0
             ? body.job_title.trim().slice(0, 100)
@@ -232,10 +246,64 @@ serve(async (req) => {
           .from("users")
           .update(updates)
           .eq("id", resourceId)
-          .select("id, email, first_name, last_name, role, status, team_id, job_title, created_at")
+          .select("id, email, first_name, last_name, role, status, team_id, department_id, job_title, created_at")
           .single();
         if (error) throw error;
         return json({ user: data });
+      }
+    }
+
+    // ── Departments ──
+    if (resource === "departments") {
+      if (req.method === "GET" && !resourceId) {
+        const { data, error } = await supabase
+          .from("departments")
+          .select("id, name, created_at")
+          .order("name");
+        if (error) throw error;
+        return json({ departments: data || [] });
+      }
+
+      if (req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const name = validateStr(body.name, 1, 100);
+        if (!name) return json({ error: "name is required (1-100 chars)" }, 400);
+        const { data, error } = await supabase
+          .from("departments")
+          .insert({ name })
+          .select("id, name, created_at")
+          .single();
+        if (error) {
+          if (error.code === "23505") return json({ error: "Department name already exists" }, 409);
+          throw error;
+        }
+        return json({ department: data }, 201);
+      }
+
+      if (req.method === "PUT" && resourceId) {
+        if (!isUUID(resourceId)) return json({ error: "Invalid department ID" }, 400);
+        const body = await req.json().catch(() => ({}));
+        const name = validateStr(body.name, 1, 100);
+        if (!name) return json({ error: "name is required (1-100 chars)" }, 400);
+        const { data, error } = await supabase
+          .from("departments")
+          .update({ name })
+          .eq("id", resourceId)
+          .select("id, name, created_at")
+          .single();
+        if (error) {
+          if (error.code === "23505") return json({ error: "Department name already exists" }, 409);
+          throw error;
+        }
+        return json({ department: data });
+      }
+
+      if (req.method === "DELETE" && resourceId) {
+        if (!isUUID(resourceId)) return json({ error: "Invalid department ID" }, 400);
+        await supabase.from("users").update({ department_id: null }).eq("department_id", resourceId);
+        const { error } = await supabase.from("departments").delete().eq("id", resourceId);
+        if (error) throw error;
+        return json({ ok: true });
       }
     }
 
@@ -484,6 +552,138 @@ serve(async (req) => {
       }
 
       return json({ success: true, screenshot: record }, 201);
+    }
+
+    // ── Policies ──
+    if (resource === "policies") {
+      if (req.method === "GET" && !resourceId) {
+        const { data, error } = await supabase
+          .from("policies")
+          .select("id, title, content, created_by, updated_at, created_at")
+          .order("updated_at", { ascending: false });
+        if (error) throw error;
+        return json({ policies: data || [] });
+      }
+      if (req.method === "POST" && !resourceId) {
+        const body = await req.json().catch(() => ({}));
+        const title = validateStr(body.title, 1, 200);
+        const content = validateStr(body.content, 1, 20000);
+        if (!title || !content) return json({ error: "title and content are required" }, 400);
+        const { data, error } = await supabase
+          .from("policies")
+          .insert({ title, content, created_by: actorId, updated_at: new Date().toISOString() })
+          .select("id, title, content, created_by, updated_at, created_at")
+          .single();
+        if (error) throw error;
+        return json({ policy: data }, 201);
+      }
+      if ((req.method === "PUT" || req.method === "PATCH") && resourceId) {
+        if (!isUUID(resourceId)) return json({ error: "Invalid policy ID" }, 400);
+        const body = await req.json().catch(() => ({}));
+        const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (body.title !== undefined) {
+          const title = validateStr(body.title, 1, 200);
+          if (!title) return json({ error: "title must be 1-200 chars" }, 400);
+          updates.title = title;
+        }
+        if (body.content !== undefined) {
+          const content = validateStr(body.content, 1, 20000);
+          if (!content) return json({ error: "content must be 1-20000 chars" }, 400);
+          updates.content = content;
+        }
+        const { data, error } = await supabase
+          .from("policies")
+          .update(updates)
+          .eq("id", resourceId)
+          .select("id, title, content, created_by, updated_at, created_at")
+          .single();
+        if (error) throw error;
+        return json({ policy: data });
+      }
+      if (req.method === "DELETE" && resourceId) {
+        if (!isUUID(resourceId)) return json({ error: "Invalid policy ID" }, 400);
+        const { error } = await supabase.from("policies").delete().eq("id", resourceId);
+        if (error) throw error;
+        return json({ success: true });
+      }
+    }
+
+    // ── Office IP ranges ──
+    if (resource === "ip-ranges") {
+      if (req.method === "GET" && !resourceId) {
+        const { data, error } = await supabase
+          .from("office_ip_ranges")
+          .select("id, cidr, label, created_at")
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        return json({ ranges: data || [] });
+      }
+      if (req.method === "POST" && !resourceId) {
+        const body = await req.json().catch(() => ({}));
+        const cidr = typeof body.cidr === "string" ? body.cidr.trim() : "";
+        const label = validateStr(body.label, 0, 200) || null;
+        if (!isValidCidr(cidr)) return json({ error: "Invalid CIDR (e.g. 192.168.1.0/24)" }, 400);
+        const { data, error } = await supabase
+          .from("office_ip_ranges")
+          .insert({ cidr, label })
+          .select("id, cidr, label, created_at")
+          .single();
+        if (error) throw error;
+        return json({ range: data }, 201);
+      }
+      if (req.method === "DELETE" && resourceId) {
+        if (!isUUID(resourceId)) return json({ error: "Invalid range ID" }, 400);
+        const { error } = await supabase.from("office_ip_ranges").delete().eq("id", resourceId);
+        if (error) throw error;
+        return json({ success: true });
+      }
+    }
+
+    // ── Audit logs (events table) ──
+    if (resource === "audit-logs" && req.method === "GET") {
+      const from = url.searchParams.get("from");
+      const to = url.searchParams.get("to");
+      const filterUser = url.searchParams.get("user_id");
+      const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+      const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
+
+      let query = supabase
+        .from("events")
+        .select("id, timestamp, type, device_id, metadata, user_id, processed")
+        .order("timestamp", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+        query = query.gte("timestamp", `${from}T00:00:00.000Z`);
+      }
+      if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+        query = query.lte("timestamp", `${to}T23:59:59.999Z`);
+      }
+      if (filterUser && isUUID(filterUser)) query = query.eq("user_id", filterUser);
+
+      const { data: events, error } = await query;
+      if (error) throw error;
+
+      const userIds = [...new Set((events || []).map((e: { user_id: string }) => e.user_id))];
+      const { data: users } = userIds.length > 0
+        ? await supabase.from("users").select("id, email, first_name, last_name").in("id", userIds)
+        : { data: [] };
+
+      const userMap: Record<string, { email: string; name: string }> = {};
+      (users || []).forEach((u: { id: string; email: string; first_name: string; last_name: string }) => {
+        userMap[u.id] = { email: u.email, name: `${u.first_name} ${u.last_name}`.trim() };
+      });
+
+      const logs = (events || []).map((e: Record<string, unknown>) => {
+        const u = userMap[e.user_id as string];
+        return {
+          ...e,
+          user_email: u?.email || "unknown",
+          user_name: u?.name || "Unknown",
+        };
+      });
+
+      return json({ logs, offset, limit, has_more: (events || []).length === limit });
     }
 
     return json({ error: "Not found" }, 404);

@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2, CalendarClock } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2, CalendarClock, StickyNote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function formatDuration(totalSeconds: number): string {
@@ -22,6 +23,7 @@ export default function EmployeeDashboardPage() {
   const qc = useQueryClient();
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["work-session-status"],
@@ -46,6 +48,11 @@ export default function EmployeeDashboardPage() {
   const sessionCount = data?.session_count ?? 0;
   const loginType = (session?.login_type as "WFH" | "SITE" | null | undefined) ?? null;
   const sessionIp = (session?.ip_address as string | null | undefined) ?? null;
+  const sessionNotes = (session?.notes as string | null | undefined) ?? "";
+
+  useEffect(() => {
+    setNoteDraft(sessionNotes);
+  }, [session?.id, sessionNotes]);
 
   // Calculate total active time: completed sessions + live active session
   useEffect(() => {
@@ -101,6 +108,14 @@ export default function EmployeeDashboardPage() {
     mutationFn: workSessionsApi.breakOut,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["work-session-status"] }); toast({ title: "Break ended", description: "Welcome back to work!" }); },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+  const notesMut = useMutation({
+    mutationFn: (notes: string) => workSessionsApi.updateNotes(session!.id, notes),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["work-session-status"] });
+      toast({ title: "Note saved" });
+    },
+    onError: (e: Error) => toast({ title: "Could not save note", description: e.message, variant: "destructive" }),
   });
 
   const greeting = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening";
@@ -245,6 +260,38 @@ export default function EmployeeDashboardPage() {
             <p className="text-sm text-muted-foreground font-mono tabular-nums mt-1">
               {String(assignedShift.start_time).slice(0, 5)} – {String(assignedShift.end_time).slice(0, 5)}
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {isWorking && session && (
+        <Card className="card-premium" id="session-note-card">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="section-label">Session note</CardTitle>
+            <div className="stat-icon bg-primary/8">
+              <StickyNote className="h-[18px] w-[18px] text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {sessionNotes ? (
+              <p className="text-xs text-muted-foreground">Saved on this session. Edit below to update.</p>
+            ) : null}
+            <Textarea
+              id="session-note-input"
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="Add a note for this session…"
+              maxLength={2000}
+              className="min-h-[88px]"
+            />
+            <Button
+              id="session-note-save"
+              size="sm"
+              disabled={notesMut.isPending || noteDraft.trim() === sessionNotes.trim()}
+              onClick={() => notesMut.mutate(noteDraft)}
+            >
+              {notesMut.isPending ? "Saving…" : "Save note"}
+            </Button>
           </CardContent>
         </Card>
       )}
