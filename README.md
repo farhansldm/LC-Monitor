@@ -5,20 +5,20 @@
 
 ---
 
-## 📌 Project Overview
+## Project Overview
 
-LC Monitor is a full-stack workforce monitoring web application. It tracks employee work hours, attendance, breaks, browser activity, and screenshots — with real-time chat, kanban tasks, and role-based access for Employees, Managers, and Administrators.
+LC Monitor is a full-stack workforce monitoring web application. It tracks employee work hours, attendance, breaks, browser activity, and screenshots — with real-time chat, kanban tasks, policies, reports, and role-based access for Employees, Managers, HR Managers, and Administrators.
 
 ```
 Web Dashboard (React/Vite)  ◄──►  Supabase (PostgreSQL + Edge Functions)  ◄──►  Chrome Extension
 ```
 
-**Active Supabase Project:** `fnojavvttewlritnqgiz`
+**Active Supabase Project:** `fnojavvttewlritnqgiz`  
 **Supabase URL:** `https://fnojavvttewlritnqgiz.supabase.co`
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -26,6 +26,7 @@ Web Dashboard (React/Vite)  ◄──►  Supabase (PostgreSQL + Edge Functions)
 | UI | ShadCN UI + Tailwind CSS |
 | State | TanStack React Query v5 |
 | Routing | React Router DOM v6 |
+| Charts | Recharts |
 | Real-time | Supabase Realtime (WebSockets) |
 | Voice/Video | WebRTC (peer-to-peer) |
 | Backend | Supabase Edge Functions (Deno/TypeScript) |
@@ -35,7 +36,7 @@ Web Dashboard (React/Vite)  ◄──►  Supabase (PostgreSQL + Edge Functions)
 
 ---
 
-## ⚡ Quick Start (Local Development)
+## Quick Start (Local Development)
 
 ### Prerequisites
 - Node.js ≥ 18
@@ -45,64 +46,95 @@ Web Dashboard (React/Vite)  ◄──►  Supabase (PostgreSQL + Edge Functions)
 
 ```bash
 # 1. Clone
-git clone <repo-url>
-cd Lc-Monitor-main
+git clone https://github.com/farhansldm/LC-Monitor.git
+cd LC-Monitor
 
 # 2. Install dependencies
 npm install
 
-# 3. Environment — already configured in .env
-#    Active project: fnojavvttewlritnqgiz
-#    Anon key is set. DO NOT commit changes to .env
+# 3. Environment
+#    Copy or create .env with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+#    DO NOT commit .env
 
 # 4. Start dev server
 npm run dev
 # → http://localhost:8080
 ```
 
-> In development, the app calls Supabase Edge Functions **directly** (no proxy needed).
-> In production, all API calls route through `supabase-proxy.php` on the web server.
+> In development, the app calls Supabase Edge Functions **directly** (no proxy needed).  
+> In production, API calls route through `public/supabase-proxy.php` on the web server.
 
 ---
 
-## 👥 User Roles
+## User Roles
 
 | Role | Access |
 |------|--------|
-| `EMPLOYEE` | Dashboard, My Workday, Timesheet, Attendance, Chats, Tasks |
+| `EMPLOYEE` | Dashboard, My Workday, Timesheet, Attendance, Leave, Policies, Chats, Tasks |
 | `MANAGER` | + Team overview, Browser History, Screenshots, Leave approvals, Reports |
-| `ADMIN` | + Full admin panel: Users, Teams, Departments, Shifts, Analytics, Audit Logs, Policies |
+| `HR_MANAGER` | Same admin-level access as ADMIN for HR modules (users, departments, policies, analytics, audit) |
+| `ADMIN` | Full admin panel: Users, Teams, Departments, Shifts, Analytics, Audit Logs, Trusted IPs |
 
 ---
 
-## 📁 Project Structure
+## Features
+
+| Area | What it does |
+|------|----------------|
+| Clock in / out / breaks | Session tracking with IP capture, WFH vs Site classification, late/early flags vs assigned shift |
+| Attendance | Calendar, corrections, CSV export |
+| Leave | Employee submit; manager/admin approve or reject |
+| Shifts | Admin creates shifts and assigns them; employee sees times on the workday card |
+| Timesheet | Session history, notes, manager comments, CSV export |
+| Reports | Date/employee/department filters, hours/breaks/IP/WFH, CSV export |
+| Analytics | Monthly KPIs (hours, late/early, WFH vs Site, leave) |
+| Policies | Employees read company policies; admin CRUD |
+| Departments | Admin CRUD; users can be assigned a department |
+| Audit logs | Paginated event log with date and user filters |
+| Trusted IPs | Admin-configured CIDR ranges used for SITE vs WFH |
+| Chat + tasks | Real-time chat, WebRTC calls, kanban tasks |
+| Monitoring | Screenshots and browser history via Chrome extension |
+| Assistant | In-app assistant wired to live attendance and timesheet data |
+
+---
+
+## Project Structure
 
 ```
 Lc-Monitor-main/
 ├── src/
-│   ├── App.tsx                    ← Routes
-│   ├── main.tsx                   ← Entry point
-│   ├── index.css                  ← Design system tokens
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── index.css
 │   ├── contexts/
-│   │   └── AuthContext.tsx        ← Auth state
+│   │   └── AuthContext.tsx
 │   ├── components/
 │   │   ├── AppLayout.tsx
-│   │   ├── AppSidebar.tsx         ← Role-aware navigation
+│   │   ├── AppSidebar.tsx
 │   │   ├── ProtectedRoute.tsx
-│   │   └── chat/                  ← Chat UI components
-│   ├── lib/                       ← API modules
+│   │   └── chat/
+│   ├── lib/
 │   │   ├── auth.ts
+│   │   ├── roles.ts
 │   │   ├── work-sessions-api.ts
-│   │   ├── attendance-api.ts      ← New (Aug 12)
+│   │   ├── attendance-api.ts
+│   │   ├── leave-api.ts
+│   │   ├── shifts-api.ts
+│   │   ├── reports-api.ts
+│   │   ├── policies-api.ts
 │   │   ├── admin-api.ts
 │   │   ├── chat-api.ts
-│   │   └── tasks-api.ts
+│   │   ├── tasks-api.ts
+│   │   └── assistant.ts
 │   └── pages/
 │       ├── LoginPage.tsx
 │       ├── Dashboard.tsx
 │       ├── EmployeeDashboardPage.tsx
 │       ├── TimesheetPage.tsx
-│       ├── AttendancePage.tsx     ← Fully rebuilt (Aug 12)
+│       ├── AttendancePage.tsx
+│       ├── LeaveRequestsPage.tsx
+│       ├── ReportsPage.tsx
+│       ├── PoliciesPage.tsx
 │       ├── BrowserHistoryPage.tsx
 │       ├── ScreenshotsPage.tsx
 │       ├── ChatsPage.tsx
@@ -111,29 +143,34 @@ Lc-Monitor-main/
 │       └── admin/
 │           ├── AdminUsersPage.tsx
 │           ├── AdminTeamsPage.tsx
-│           └── BrowserHistoryPage.tsx
+│           ├── BrowserHistoryPage.tsx
+│           ├── ShiftSchedulingPage.tsx
+│           ├── DepartmentsPage.tsx
+│           ├── AnalyticsPage.tsx
+│           ├── AuditLogsPage.tsx
+│           └── IpConfigPage.tsx
 ├── supabase/
 │   ├── functions/
-│   │   ├── auth/index.ts          ← Login, signup, /me
-│   │   ├── work-sessions/index.ts ← Clock in/out, breaks, attendance, history
-│   │   ├── admin/index.ts         ← Users, teams, stats
+│   │   ├── auth/index.ts
+│   │   ├── work-sessions/index.ts   ← clock, leave, shifts, reports, analytics, notes, manager comments
+│   │   ├── admin/index.ts           ← users, teams, departments, policies, IP ranges, audit logs
 │   │   ├── chat/index.ts
 │   │   └── tasks/index.ts
-│   └── migrations/                ← 17 migration SQL files
+│   └── migrations/
 ├── extension/
-│   ├── manifest.json              ← Chrome Extension MV3
-│   ├── background.js              ← Screenshots + browser history
+│   ├── manifest.json
+│   ├── background.js
 │   ├── popup.html / popup.js
 │   └── config.js
-├── .env                           ← Supabase credentials (DO NOT COMMIT)
-├── project_analysis.md            ← 📖 Full project reference (READ THIS)
-├── 5_day_plan.md                  ← 📋 Current sprint plan
-└── updated req.md                 ← 📄 Full requirements (18 sections)
+├── public/
+│   └── supabase-proxy.php           ← production CORS proxy
+├── 5_day_plan.md
+└── updated req.md
 ```
 
 ---
 
-## 🗺️ Routes
+## Routes
 
 | Path | Page | Roles |
 |------|------|-------|
@@ -142,33 +179,40 @@ Lc-Monitor-main/
 | `/employee` | My Workday (Clock In/Out) | All |
 | `/timesheet` | Session History | All |
 | `/attendance` | Attendance Calendar + Corrections | All |
+| `/leave` | Leave Requests | All |
+| `/reports` | Filtered reports + CSV | MANAGER, ADMIN, HR_MANAGER |
+| `/policies` | Company policies | All (write: ADMIN / HR_MANAGER) |
 | `/chats` | Real-time Chat + WebRTC Calls | All |
 | `/tasks` | Kanban Tasks | All |
-| `/team` | Team Overview | MANAGER, ADMIN |
-| `/browser-history` | Browser History | MANAGER, ADMIN |
-| `/screenshots` | Screenshots | MANAGER, ADMIN |
-| `/admin` | Admin Panel | ADMIN |
-| `/admin/users` | User Management | ADMIN |
-| `/admin/teams` | Team Management | ADMIN |
-| `/admin/browser-history` | Admin Browser History | ADMIN |
-
-**Coming soon (5-day sprint):**
-`/leave`, `/reports`, `/policies`, `/admin/shifts`, `/admin/departments`, `/admin/analytics`, `/admin/audit-logs`, `/admin/ip-config`
-
----
-
-## 🗄️ Database (PostgreSQL via Supabase)
-
-**Current tables:** `users`, `teams`, `work_sessions`, `breaks`, `attendance`, `attendance_corrections`, `browser_history`, `screenshots`, `chat_groups`, `chat_members`, `chat_messages`, `tasks`, `task_activity`, `devices`, `events`
-
-**Migrations needed (Day 1 of sprint):** `departments`, `shifts`, `user_shifts`, `leave_requests`, `policies`, `office_ip_ranges` + columns on `work_sessions` (`ip_address`, `login_type`, `late_flag`, `early_flag`)
+| `/team` | Team Overview | MANAGER, ADMIN, HR_MANAGER |
+| `/browser-history` | Browser History | MANAGER, ADMIN, HR_MANAGER |
+| `/screenshots` | Screenshots | MANAGER, ADMIN, HR_MANAGER |
+| `/admin` | Admin Panel | ADMIN, HR_MANAGER |
+| `/admin/users` | User Management | ADMIN, HR_MANAGER |
+| `/admin/teams` | Team Management | ADMIN, HR_MANAGER |
+| `/admin/browser-history` | Admin Browser History | ADMIN, HR_MANAGER |
+| `/admin/shifts` | Shift Scheduling | ADMIN, HR_MANAGER |
+| `/admin/departments` | Departments | ADMIN, HR_MANAGER |
+| `/admin/analytics` | Analytics KPIs | ADMIN, HR_MANAGER |
+| `/admin/audit-logs` | Audit Logs | ADMIN, HR_MANAGER |
+| `/admin/ip-config` | Trusted office IP ranges | ADMIN, HR_MANAGER |
 
 ---
 
-## 🔌 Chrome Extension
+## Database (PostgreSQL via Supabase)
+
+**Core tables:** `users`, `teams`, `work_sessions`, `breaks`, `attendance`, `attendance_corrections`, `browser_history`, `screenshots`, `chat_groups`, `chat_members`, `chat_messages`, `tasks`, `task_activity`, `devices`, `events`
+
+**Sprint tables:** `departments`, `shifts`, `user_shifts`, `leave_requests`, `policies`, `office_ip_ranges`
+
+**Session extras:** `ip_address`, `login_type` (`WFH` / `SITE`), `late_flag`, `early_flag`, `notes`, `manager_comment`
+
+---
+
+## Chrome Extension
 
 The extension (`extension/`) is a Chrome MV3 service worker that:
-- Takes screenshots every **15 minutes** → uploads to Supabase Storage → inserts into `screenshots` table
+- Takes screenshots every **15 minutes** → uploads to Supabase Storage → inserts into `screenshots`
 - Tracks browser history via `chrome.history.onVisited` → batches and sends every 60 seconds
 
 **To load in Chrome:**
@@ -179,13 +223,13 @@ The extension (`extension/`) is a Chrome MV3 service worker that:
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 ### Build
 ```bash
 npm run build
 # Output: dist/
-# Upload dist/ to web server
+# Upload dist/ to web server (include public/supabase-proxy.php)
 ```
 
 ### Edge Functions
@@ -203,44 +247,48 @@ supabase db push
 # OR paste SQL into Supabase dashboard → SQL Editor
 ```
 
-### ⚠️ Important: Production Requires `supabase-proxy.php`
-In production, the frontend calls `/supabase-proxy.php?path=work-sessions` (PHP reverse proxy) instead of calling Supabase directly, to solve CORS. This file must exist on the web server. Contact **Mantasha** (previous developer) or the server admin for this file.
+Apply all files in `supabase/migrations/`, including:
+- `20260812_001`–`005` (departments, shifts, leave, policies, IP/flags)
+- `20260813_001_hr_manager_role.sql`
+- `20260814_001_manager_comment.sql`
+
+### Production proxy
+In production, the frontend calls `/supabase-proxy.php?path=work-sessions` instead of calling Supabase directly. The proxy lives at `public/supabase-proxy.php` and must be deployed with the site.
 
 ---
 
-## 📋 Current Sprint Status
+## Sprint Status
 
 **5-Day Completion Sprint — Started Aug 12, 2026**
 
 | Day | Theme | Status |
 |-----|-------|--------|
-| Day 1 | DB Foundation + IP/WFH Classification | ⬜ Pending |
-| Day 2 | Leave Requests + Shift Scheduling | ⬜ Pending |
-| Day 3 | Departments + Reports + Analytics + CSV | ⬜ Pending |
-| Day 4 | Notes + Comments + Policies + Audit + IP Config | ⬜ Pending |
-| Day 5 | Dark Mode + Notifications + Polish + Deploy | ⬜ Pending |
+| Day 1 | DB Foundation + IP/WFH Classification | Done |
+| Day 2 | Leave Requests + Shift Scheduling + HR Manager | Done |
+| Day 3 | Departments + Reports + Analytics + CSV | Done |
+| Day 4 | Notes + Comments + Policies + Audit + IP Config | Done |
+| Day 5 | Dark Mode + Notifications + Extension polish + Deploy | Pending |
 
-> See `5_day_plan.md` for detailed task breakdown per day.
-> See `project_analysis.md` for the full file map, API reference, design patterns, and progress tracker.
+> See `5_day_plan.md` for the remaining Day 5 tasks.  
+> See `updated req.md` for the full client requirements.
 
 ---
 
-## 📖 Key Documents
+## Key Documents
 
 | File | Purpose |
 |------|---------|
-| `project_analysis.md` | **Full project reference** — file map, API endpoints, DB tables, design patterns, known issues, progress tracker |
-| `5_day_plan.md` | **Current sprint plan** — day-by-day tasks, files to create, deliverables |
-| `updated req.md` | **Full requirements** — all 18 sections from the client |
+| `5_day_plan.md` | Day-by-day sprint plan, files, and deliverables |
+| `updated req.md` | Full requirements (18 sections) |
 
 ---
 
-## ⚠️ Known Issues
+## Known Issues / Day 5 leftovers
 
 | Issue | Severity |
 |-------|---------|
-| Extension `duration_seconds` is always 0 | 🟡 Medium |
-| Extension POSTs to Supabase REST directly, not Edge Function | 🟡 Medium |
-| Employee `/` dashboard card shows static placeholder data | 🟡 Medium |
-| Admin Browser History page has no filters | 🟡 Low |
-| `supabase-proxy.php` not in repo — needed for production | 🟠 High |
+| Dark mode toggle not shipped yet | Medium |
+| Email notifications (missed clock-out, leave, daily summary) not shipped | Medium |
+| Extension `duration_seconds` is often 0 | Medium |
+| Web login may not activate the extension without popup login | Medium |
+| Extension POSTs to Supabase REST directly in some paths | Low |
