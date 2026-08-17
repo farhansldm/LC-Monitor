@@ -70,11 +70,27 @@ Open http://localhost:8080
 
 ## Put it on the web
 
+On your computer, build the site:
+
 ```bash
 npm run build
 ```
 
-Upload the `dist/` folder. The host must run PHP so `/supabase-proxy.php` works.
+That creates a `dist/` folder. Inside it you should see `index.html` and `supabase-proxy.php`.
+
+Copy **everything inside `dist/`** to your website folder on the host (`public_html`, `htdocs`, or `www`). Use FTP, cPanel File Manager, or your host’s upload tool.
+
+The host must support **PHP**. After upload, open:
+
+`https://your-domain.com/supabase-proxy.php?path=auth`
+
+You should get a JSON error like `"Path is required"` is wrong... actually path=auth might hit the function. Empty path returns Path is required.
+
+`https://your-domain.com/supabase-proxy.php` → `{"error":"Path is required"}` means PHP is working.
+
+Then open `https://your-domain.com` and log in.
+
+`npm run dev` is only for local work. You do not run `dist/` with `npm run dev`.
 
 ---
 
