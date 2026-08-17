@@ -7,20 +7,32 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and build
 node_modules
 dist
 dist-ssr
+
+# Secrets and local env (keep .env.example if you add one)
 *.local
 .env
+.env.*
+!.env.example
+
+# Supabase CLI cache
 supabase/.temp
 
-# Editor directories and files
+# Cursor / editor
+.cursor/
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
+*.sw?
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini

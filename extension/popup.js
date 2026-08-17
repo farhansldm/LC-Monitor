@@ -14,6 +14,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { session } = await chrome.storage.local.get('session');
   if (session && session.user) {
     showStatus(session.user.email);
+    chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (status) => {
+      const el = document.getElementById('monitor-detail');
+      if (!el || chrome.runtime.lastError || !status) return;
+      const badge = document.getElementById('status-badge');
+      const title = document.getElementById('status-title');
+      if (status.clockedIn) {
+        if (title) title.textContent = 'LC Monitor Active';
+        if (badge) {
+          badge.textContent = '● Monitoring';
+          badge.style.backgroundColor = '#dcfce7';
+          badge.style.color = '#166534';
+        }
+        el.textContent = `Clocked in — screenshots every 15 min. ${
+          status.lastScreenshotAt
+            ? 'Last screenshot: ' + new Date(status.lastScreenshotAt).toLocaleTimeString()
+            : 'No screenshot yet'
+        }.${status.lastScreenshotError ? ' Error: ' + status.lastScreenshotError : ''}`;
+      } else {
+        if (title) title.textContent = 'LC Monitor';
+        if (badge) {
+          badge.textContent = 'Idle';
+          badge.style.backgroundColor = '#f1f5f9';
+          badge.style.color = '#475569';
+        }
+        el.textContent = 'Logged in. Clock in on the website to start screenshots and history.';
+      }
+    });
   } else {
     showLogin();
   }

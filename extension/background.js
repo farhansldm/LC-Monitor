@@ -1,88 +1,239 @@
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
 let session = null;
+let clockedIn = false;
 let historyBuffer = [];
-const BATCH_INTERVAL_MS = 60000; // Send history every 1 minute
-let batchTimer = null;
+let currentFocus = { url: null, title: null, startedAt: null };
+let lastScreenshotAt = null;
+let lastScreenshotError = null;
 
-// Edge function base URL (accepts our custom JWT)
 const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
+const SCREENSHOT_MINUTES = 15;
 
-// Initialize — restore session if extension was restarted
-chrome.storage.local.get('session', (data) => {
-  if (data.session) {
-    session = data.session;
-    startMonitoring();
-  }
+chrome.storage.local.get(['session', 'clockedIn', 'lastScreenshotAt'], (data) => {
+  if (data.session) session = data.session;
+  clockedIn = !!data.clockedIn;
+  lastScreenshotAt = data.lastScreenshotAt || null;
+  if (session && clockedIn) resumeMonitoring(false);
 });
 
-// Listen for login/logout from popup
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+chrome.runtime.onInstalled.addListener(() => injectIntoOpenTabs());
+
+async function injectIntoOpenTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js'],
+        });
+      } catch {
+        /* chrome:// or no permission */
+      }
+    }
+  } catch {
+    /* scripting not available */
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'GET_STATUS') {
+    sendResponse({
+      ok: true,
+      hasSession: !!session,
+      clockedIn,
+      lastScreenshotAt,
+      lastScreenshotError,
+    });
+    return false;
+  }
+
   if (msg.type === 'LOGIN_SUCCESS') {
     chrome.storage.local.get('session', (data) => {
       session = data.session;
-      startMonitoring();
+      sendResponse?.({ ok: true });
     });
-  } else if (msg.type === 'LOGOUT_SUCCESS') {
+    return true;
+  }
+
+  if (msg.type === 'SAVE_SESSION' || msg.type === 'ACTIVATE_MONITORING') {
+    applySession(msg.token, msg.user);
+    sendResponse?.({ ok: true });
+    return false;
+  }
+
+  if (msg.type === 'CLOCKED_IN') {
+    applySession(msg.token, msg.user);
+    setClockedIn(true);
+    sendResponse?.({ ok: true });
+    return false;
+  }
+
+  if (msg.type === 'CLOCKED_OUT') {
+    setClockedIn(false);
+    sendResponse?.({ ok: true });
+    return false;
+  }
+
+  if (msg.type === 'LOGOUT_SUCCESS' || msg.type === 'DEACTIVATE_MONITORING') {
     stopMonitoring();
+    chrome.storage.local.remove(['session', 'clockedIn']);
+    sendResponse?.({ ok: true });
   }
 });
 
-function startMonitoring() {
-  if (!session) return;
-  console.log("Starting monitoring for", session.user.email);
-
-  // Clear any existing alarm before creating new one
-  chrome.alarms.clear("screenshot_alarm", () => {
-    // Setup 15-minute screenshot alarm (fires every 15 minutes)
-    chrome.alarms.create("screenshot_alarm", {
-      delayInMinutes: 15,
-      periodInMinutes: 15
-    });
-  });
-
-  // Start history batching timer
-  if (batchTimer) clearInterval(batchTimer);
-  batchTimer = setInterval(flushHistoryBuffer, BATCH_INTERVAL_MS);
-
-  // Take an immediate initial screenshot
-  takeScreenshot();
+function applySession(token, user) {
+  if (!token) return;
+  session = {
+    access_token: token,
+    user: user || session?.user || {},
+  };
+  chrome.storage.local.set({ session });
 }
 
-function stopMonitoring() {
-  session = null;
-  console.log("Stopped monitoring");
-  chrome.alarms.clear("screenshot_alarm");
-  if (batchTimer) {
-    clearInterval(batchTimer);
-    batchTimer = null;
-  }
+function resumeMonitoring(resetScreenshotTimer) {
+  if (!session || !clockedIn) return;
+  chrome.alarms.create('history_flush', { delayInMinutes: 1, periodInMinutes: 1 });
+  captureActiveTab();
+  if (resetScreenshotTimer) armScreenshotAlarm();
+}
+
+function pauseMonitoring() {
+  commitCurrentFocus();
+  flushHistoryBuffer();
+  currentFocus = { url: null, title: null, startedAt: null };
+  chrome.alarms.clear('screenshot_alarm');
+  chrome.alarms.clear('history_flush');
+  chrome.alarms.clear('status_poll');
   historyBuffer = [];
 }
 
-// Handle Screenshot Alarm
+function stopMonitoring() {
+  pauseMonitoring();
+  session = null;
+  clockedIn = false;
+}
+
+function setClockedIn(next) {
+  const turningOn = !!next && !clockedIn;
+  const turningOff = !next && clockedIn;
+  clockedIn = !!next;
+  chrome.storage.local.set({ clockedIn });
+  if (turningOn) {
+    console.log('Clocked in — monitoring started');
+    resumeMonitoring(true);
+  } else if (turningOff) {
+    console.log('Clocked out — monitoring stopped');
+    pauseMonitoring();
+  }
+}
+
+function armScreenshotAlarm() {
+  chrome.alarms.create('screenshot_alarm', {
+    delayInMinutes: SCREENSHOT_MINUTES,
+    periodInMinutes: SCREENSHOT_MINUTES,
+  });
+  console.log(`Screenshot alarm armed: first capture in ${SCREENSHOT_MINUTES} minutes, then every ${SCREENSHOT_MINUTES} minutes`);
+}
+
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "screenshot_alarm" && session) {
-    takeScreenshot();
+  if (!session || !clockedIn) return;
+  if (alarm.name === 'screenshot_alarm') takeScreenshot();
+  if (alarm.name === 'history_flush') {
+    commitCurrentFocus(true);
+    flushHistoryBuffer();
   }
 });
 
-async function takeScreenshot() {
-  if (!session) return;
-  try {
-    // Get the current active tab first
-    const [activeTab] = await new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, resolve);
-    });
+function isTrackableUrl(url) {
+  if (!url) return false;
+  return !url.startsWith('chrome://') && !url.startsWith('chrome-extension://') && !url.startsWith('about:');
+}
 
-    if (!activeTab || !activeTab.id) {
-      console.warn("Screenshot skipped: no active tab found");
+function commitCurrentFocus(resetStart = false) {
+  if (!session || !currentFocus.url || !currentFocus.startedAt) {
+    if (resetStart && currentFocus.url) currentFocus.startedAt = Date.now();
+    return;
+  }
+  const seconds = Math.max(1, Math.round((Date.now() - currentFocus.startedAt) / 1000));
+  historyBuffer.push({
+    url: currentFocus.url,
+    title: currentFocus.title || '',
+    visited_at: new Date(currentFocus.startedAt).toISOString(),
+    duration_seconds: seconds,
+  });
+  if (resetStart) currentFocus.startedAt = Date.now();
+  else currentFocus = { url: null, title: null, startedAt: null };
+  if (historyBuffer.length > 50) flushHistoryBuffer();
+}
+
+function switchFocus(tab) {
+  commitCurrentFocus();
+  if (!tab || !isTrackableUrl(tab.url)) {
+    currentFocus = { url: null, title: null, startedAt: null };
+    return;
+  }
+  currentFocus = { url: tab.url, title: tab.title || '', startedAt: Date.now() };
+}
+
+function captureActiveTab() {
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    if (tabs && tabs[0]) switchFocus(tabs[0]);
+  });
+}
+
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  if (!session || !clockedIn) return;
+  chrome.tabs.get(activeInfo.tabId, (tab) => {
+    if (chrome.runtime.lastError) return;
+    switchFocus(tab);
+  });
+});
+
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+  if (!session || !clockedIn || !tab.active) return;
+  if (changeInfo.url) switchFocus(tab);
+  else if (changeInfo.title && currentFocus.url === tab.url) currentFocus.title = changeInfo.title;
+});
+
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (!session || !clockedIn) return;
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    commitCurrentFocus();
+    return;
+  }
+  captureActiveTab();
+});
+
+async function findCaptureWindowId() {
+  try {
+    const last = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+    if (last?.id != null) return last.id;
+  } catch {
+    /* ignore */
+  }
+  const wins = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+  const focused = wins.find((w) => w.focused);
+  return (focused || wins[0])?.id ?? null;
+}
+
+async function takeScreenshot() {
+  if (!session || !clockedIn) {
+    console.warn('Screenshot skipped: not clocked in or no session');
+    return;
+  }
+  try {
+    const windowId = await findCaptureWindowId();
+    if (windowId == null) {
+      lastScreenshotError = 'No Chrome window to capture';
+      console.warn(lastScreenshotError);
       return;
     }
 
-    // Capture visible tab — requires 'tabs' + host_permissions: <all_urls>
     const dataUrl = await new Promise((resolve, reject) => {
-      chrome.tabs.captureVisibleTab(activeTab.windowId, { format: "jpeg", quality: 50 }, (data) => {
+      chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 50 }, (data) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else {
@@ -93,80 +244,57 @@ async function takeScreenshot() {
 
     if (!dataUrl) return;
 
-    const timestamp = Date.now();
-
-    // Send image as base64 to Edge Function.
-    // The Edge Function uses the service role key to upload to Supabase Storage internally
-    // (our custom JWT is rejected by Supabase Storage directly).
     const uploadRes = await fetch(`${FUNCTIONS_URL}/work-sessions/screenshots`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': SUPABASE_KEY,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image_base64: dataUrl,       // full data:image/jpeg;base64,... string
-        taken_at: new Date(timestamp).toISOString(),
-        is_blurred: false
-      })
+        image_base64: dataUrl,
+        taken_at: new Date().toISOString(),
+        is_blurred: false,
+      }),
     });
 
     if (!uploadRes.ok) {
-      console.error("Screenshot upload failed", await uploadRes.text());
-    } else {
-      const result = await uploadRes.json();
-      console.log("Screenshot saved! Path:", result?.screenshot?.storage_path);
+      lastScreenshotError = await uploadRes.text();
+      console.error('Screenshot upload failed', lastScreenshotError);
+      return;
     }
 
+    lastScreenshotAt = new Date().toISOString();
+    lastScreenshotError = null;
+    chrome.storage.local.set({ lastScreenshotAt });
+    const result = await uploadRes.json();
+    console.log('Screenshot saved', result?.screenshot?.storage_path);
   } catch (err) {
-    console.error("Screenshot error:", err.message);
+    lastScreenshotError = err.message || String(err);
+    console.error('Screenshot error:', lastScreenshotError);
   }
 }
 
-// Handle History Tracking
-chrome.history.onVisited.addListener((historyItem) => {
-  if (!session) return;
-
-  // Ignore chrome:// or internal extension pages
-  if (historyItem.url.startsWith('chrome://') || historyItem.url.startsWith('chrome-extension://')) return;
-
-  historyBuffer.push({
-    url: historyItem.url,
-    title: historyItem.title || "",
-    visited_at: new Date(historyItem.lastVisitTime || Date.now()).toISOString(),
-    duration_seconds: 0
-  });
-
-  if (historyBuffer.length > 50) {
-    flushHistoryBuffer();
-  }
-});
-
 async function flushHistoryBuffer() {
   if (historyBuffer.length === 0 || !session) return;
-
   const payload = [...historyBuffer];
   historyBuffer = [];
-
   try {
-    // Route through Edge Function — accepts our custom JWT (not Supabase native JWT)
     const res = await fetch(`${FUNCTIONS_URL}/work-sessions/browser-history`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': SUPABASE_KEY,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-
     if (!res.ok) {
-      console.error("History flush failed", await res.text());
-    } else {
-      console.log(`Flushed ${payload.length} history items`);
+      console.error('History flush failed', await res.text());
+      historyBuffer = payload.concat(historyBuffer);
     }
   } catch (err) {
-    console.error("History flush error", err);
+    console.error('History flush error', err);
+    historyBuffer = payload.concat(historyBuffer);
   }
 }

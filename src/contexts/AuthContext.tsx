@@ -8,8 +8,9 @@ import {
   fetchCurrentUser,
   getStoredUser,
   isAuthenticated as checkAuth,
+  getAccessToken,
 } from "@/lib/auth";
-import { activateMonitorExtension } from "@/lib/extension-activate";
+import { deactivateMonitorExtension, saveExtensionSession } from "@/lib/extension-activate";
 
 
 interface AuthContextType {
@@ -45,6 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             navigate("/login", { replace: true });
           } else {
             setUser(u);
+            const token = getAccessToken();
+            if (token) saveExtensionSession({ token, user: u });
           }
         })
         .catch(() => {
@@ -62,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const res = await authLogin(email, password);
     setUser(res.user);
-    activateMonitorExtension(res.user.id, res.user.monitor_token);
+    saveExtensionSession({ token: res.token, user: res.user });
   }, []);
 
   const signup = useCallback(
@@ -74,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    deactivateMonitorExtension();
     authLogout();
     setUser(null);
     navigate("/login", { replace: true });

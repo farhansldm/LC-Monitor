@@ -31,7 +31,10 @@ if (empty($path)) {
     exit;
 }
 
-$supabaseUrl = "https://cuawkttwzfpjtqwjaybu.supabase.co/functions/v1/" . $path;
+// CHANGE THIS to YOUR project URL (Settings → API → Project URL).
+// Example: https://abcdefghijklmnop.supabase.co/functions/v1/
+$SUPABASE_FUNCTIONS_BASE = "https://ivipigucanknjjvmnble.supabase.co/functions/v1/";
+$supabaseUrl = $SUPABASE_FUNCTIONS_BASE . $path;
 
 // Get all incoming headers
 $headers = [];

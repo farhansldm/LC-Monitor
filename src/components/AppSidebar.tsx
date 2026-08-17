@@ -20,7 +20,10 @@ import {
   FileBarChart,
   ScrollText,
   Network,
+  Moon,
+  Sun,
 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import companyLogo from "@/assets/lemoncode-logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -68,6 +71,7 @@ const adminItems = [
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -205,6 +209,17 @@ export function AppSidebar() {
           </div>
         )}
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              id="theme-toggle"
+              onClick={toggleTheme}
+              tooltip={theme === "dark" ? "Light mode" : "Dark mode"}
+              className="rounded-lg h-9 text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-white/90 transition-colors"
+            >
+              {theme === "dark" ? <Sun className="h-[15px] w-[15px]" /> : <Moon className="h-[15px] w-[15px]" />}
+              <span className="text-[13px]">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={logout}

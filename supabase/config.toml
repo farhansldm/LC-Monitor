@@ -1,4 +1,4 @@
-project_id = "fnojavvttewlritnqgiz"
+project_id = "ivipigucanknjjvmnble"
  
 [functions.auth]
 verify_jwt = false
@@ -13,4 +13,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.tasks]
+verify_jwt = false
+
+[functions.notifications]
 verify_jwt = false

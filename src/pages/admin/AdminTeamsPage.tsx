@@ -193,7 +193,10 @@ export default function AdminTeamsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-display font-bold">Team Management</h1>
+        <div>
+          <h1 className="page-heading">Team Management</h1>
+          <p className="page-subheading">Create teams and assign managers</p>
+        </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditTeam(null); }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}>

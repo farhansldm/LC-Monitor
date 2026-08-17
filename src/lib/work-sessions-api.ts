@@ -1,4 +1,5 @@
 import { getAuthHeaders } from "@/lib/auth";
+import { notifyExtensionClockedIn, notifyExtensionClockedOut } from "@/lib/extension-activate";
 
 // In production, route through local PHP proxy to bypass Edge Function CORS
 const IS_PROD = import.meta.env.PROD;
@@ -22,8 +23,16 @@ async function request(path: string, options?: RequestInit) {
 
 export const workSessionsApi = {
   getStatus: () => request("status"),
-  clockIn: () => request("clock-in", { method: "POST" }),
-  clockOut: () => request("clock-out", { method: "POST" }),
+  clockIn: async () => {
+    const data = await request("clock-in", { method: "POST" });
+    notifyExtensionClockedIn();
+    return data;
+  },
+  clockOut: async () => {
+    const data = await request("clock-out", { method: "POST" });
+    notifyExtensionClockedOut();
+    return data;
+  },
   breakIn: () => request("break-in", { method: "POST" }),
   breakOut: () => request("break-out", { method: "POST" }),
   getActiveNow: () => request("active-now"),

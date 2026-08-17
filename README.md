@@ -13,8 +13,8 @@ LC Monitor is a full-stack workforce monitoring web application. It tracks emplo
 Web Dashboard (React/Vite)  ◄──►  Supabase (PostgreSQL + Edge Functions)  ◄──►  Chrome Extension
 ```
 
-**Active Supabase Project:** `fnojavvttewlritnqgiz`  
-**Supabase URL:** `https://fnojavvttewlritnqgiz.supabase.co`
+**Active Supabase project:** `ivipigucanknjjvmnble`  
+To point at a different project, see **`DEPLOYMENT.md`**. Do not commit `.env`.
 
 ---
 
@@ -53,8 +53,10 @@ cd LC-Monitor
 npm install
 
 # 3. Environment
-#    Copy or create .env with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+#    cp .env.example .env
+#    Fill VITE_SUPABASE_URL, VITE_SUPABASE_PROJECT_ID, VITE_SUPABASE_PUBLISHABLE_KEY
 #    DO NOT commit .env
+#    See DEPLOYMENT.md if this is a new Supabase account
 
 # 4. Start dev server
 npm run dev
@@ -93,8 +95,10 @@ npm run dev
 | Audit logs | Paginated event log with date and user filters |
 | Trusted IPs | Admin-configured CIDR ranges used for SITE vs WFH |
 | Chat + tasks | Real-time chat, WebRTC calls, kanban tasks |
-| Monitoring | Screenshots and browser history via Chrome extension |
+| Monitoring | Screenshots and browser history (duration + web-login activate) |
 | Assistant | In-app assistant wired to live attendance and timesheet data |
+| Theme | Dark/light toggle persisted in `localStorage` |
+| Email | Leave decisions, missed clock-out (8pm), daily hours (7am) via Resend or stub |
 
 ---
 
@@ -107,7 +111,8 @@ Lc-Monitor-main/
 │   ├── main.tsx
 │   ├── index.css
 │   ├── contexts/
-│   │   └── AuthContext.tsx
+│   │   ├── AuthContext.tsx
+│   │   └── ThemeContext.tsx
 │   ├── components/
 │   │   ├── AppLayout.tsx
 │   │   ├── AppSidebar.tsx
@@ -154,6 +159,7 @@ Lc-Monitor-main/
 │   │   ├── auth/index.ts
 │   │   ├── work-sessions/index.ts   ← clock, leave, shifts, reports, analytics, notes, manager comments
 │   │   ├── admin/index.ts           ← users, teams, departments, policies, IP ranges, audit logs
+│   │   ├── notifications/index.ts   ← Resend (or stub): leave, missed clock-out, daily summary
 │   │   ├── chat/index.ts
 │   │   └── tasks/index.ts
 │   └── migrations/
@@ -164,8 +170,8 @@ Lc-Monitor-main/
 │   └── config.js
 ├── public/
 │   └── supabase-proxy.php           ← production CORS proxy
-├── 5_day_plan.md
-└── updated req.md
+├── README.md
+└── DEPLOYMENT.md
 ```
 
 ---
@@ -212,8 +218,9 @@ Lc-Monitor-main/
 ## Chrome Extension
 
 The extension (`extension/`) is a Chrome MV3 service worker that:
-- Takes screenshots every **15 minutes** → uploads to Supabase Storage → inserts into `screenshots`
-- Tracks browser history via `chrome.history.onVisited` → batches and sends every 60 seconds
+- Takes screenshots every **15 minutes** (`chrome.alarms`) → Edge Function → Storage
+- Tracks **tab-focus duration** and flushes history every 60 seconds via `chrome.alarms`
+- Activates from the **web dashboard login** (`content.js` + `ACTIVATE_MONITORING`) as well as the popup
 
 **To load in Chrome:**
 1. Open `chrome://extensions`
@@ -221,9 +228,13 @@ The extension (`extension/`) is a Chrome MV3 service worker that:
 3. Click "Load unpacked"
 4. Select the `extension/` folder
 
+Optional: set `VITE_EXTENSION_ID` to the unpacked ID and rebuild the web app.
+
 ---
 
 ## Deployment
+
+See **`DEPLOYMENT.md`** for the full runbook (build, SQL, functions, Resend, cron, extension).
 
 ### Build
 ```bash
@@ -239,6 +250,7 @@ supabase functions deploy admin
 supabase functions deploy auth
 supabase functions deploy chat
 supabase functions deploy tasks
+supabase functions deploy notifications
 ```
 
 ### Database Migrations
@@ -248,7 +260,7 @@ supabase db push
 ```
 
 Apply all files in `supabase/migrations/`, including:
-- `20260812_001`–`005` (departments, shifts, leave, policies, IP/flags)
+- `20260812_001` departments, then `20260812000200`–`005` (shifts, leave, policies, IP/flags)
 - `20260813_001_hr_manager_role.sql`
 - `20260814_001_manager_comment.sql`
 
@@ -267,28 +279,6 @@ In production, the frontend calls `/supabase-proxy.php?path=work-sessions` inste
 | Day 2 | Leave Requests + Shift Scheduling + HR Manager | Done |
 | Day 3 | Departments + Reports + Analytics + CSV | Done |
 | Day 4 | Notes + Comments + Policies + Audit + IP Config | Done |
-| Day 5 | Dark Mode + Notifications + Extension polish + Deploy | Pending |
+| Day 5 | Dark Mode + Notifications + Extension polish + Deploy | Done |
 
-> See `5_day_plan.md` for the remaining Day 5 tasks.  
-> See `updated req.md` for the full client requirements.
-
----
-
-## Key Documents
-
-| File | Purpose |
-|------|---------|
-| `5_day_plan.md` | Day-by-day sprint plan, files, and deliverables |
-| `updated req.md` | Full requirements (18 sections) |
-
----
-
-## Known Issues / Day 5 leftovers
-
-| Issue | Severity |
-|-------|---------|
-| Dark mode toggle not shipped yet | Medium |
-| Email notifications (missed clock-out, leave, daily summary) not shipped | Medium |
-| Extension `duration_seconds` is often 0 | Medium |
-| Web login may not activate the extension without popup login | Medium |
-| Extension POSTs to Supabase REST directly in some paths | Low |
+> See **`DEPLOYMENT.md`** for production steps.

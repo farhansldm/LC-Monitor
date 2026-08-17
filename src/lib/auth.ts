@@ -134,3 +134,7 @@ export function getAuthHeaders(): Record<string, string> {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+export function getAccessToken(): string | null {
+  return getToken();
+}

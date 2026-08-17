@@ -200,7 +200,10 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-display font-bold">User Management</h1>
+        <div>
+          <h1 className="page-heading">User Management</h1>
+          <p className="page-subheading">Create accounts and assign roles, teams, and departments</p>
+        </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditUser(null); setCreatedUser(null); } }}>
           <DialogTrigger asChild>
             <Button onClick={openCreate}>

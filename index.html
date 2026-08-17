@@ -1,7 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("lc-theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.classList.remove("light", "dark");
+            document.documentElement.classList.add(t);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- TODO: Set the document title to the name of your application -->
     <title>LC Monitor</title>

@@ -48,6 +48,31 @@ async function requireAuth(req: Request, jwtSecret: string): Promise<Record<stri
   return await verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
 }
 
+async function notifyLeaveDecision(payload: {
+  to: string;
+  name: string;
+  date: string;
+  status: string;
+  comment: string;
+}) {
+  try {
+    const base = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!base || !key) return;
+    await fetch(`${base}/functions/v1/notifications`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ type: "leave", ...payload }),
+    });
+  } catch (err) {
+    console.error("leave notification failed", err);
+  }
+}
+
 function isAdminRole(role: string) {
   return role === "ADMIN" || role === "HR_MANAGER";
 }
@@ -1437,6 +1462,21 @@ serve(async (req) => {
             },
             { onConflict: "user_id,date" }
           );
+      }
+
+      const { data: emp } = await supabase
+        .from("users")
+        .select("email, first_name")
+        .eq("id", existing.user_id)
+        .maybeSingle();
+      if (emp?.email) {
+        await notifyLeaveDecision({
+          to: emp.email,
+          name: emp.first_name || "there",
+          date: String(existing.date),
+          status: reviewAction,
+          comment,
+        });
       }
 
       return json({ leave: updated });
