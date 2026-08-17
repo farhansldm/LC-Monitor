@@ -1,6 +1,14 @@
 # How to run LC Monitor
 
-Keys are already in `.env`, `extension/config.js`, and `public/supabase-proxy.php`. Do not commit `.env`.
+Keys live in `.env`, `extension/config.js`, and `public/supabase-proxy.php`. Copy the `.example` files if you start from a clone:
+
+```
+.env.example                     → .env
+extension/config.example.js      → extension/config.js
+public/supabase-proxy.example.php → public/supabase-proxy.php
+```
+
+Do not commit `.env`.
 
 You need Node.js 18+ and [Supabase CLI](https://supabase.com/docs/guides/cli).
 
