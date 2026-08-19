@@ -1,5 +1,5 @@
-import { getAuthHeaders } from "@/lib/auth";
 import { notifyExtensionClockedIn, notifyExtensionClockedOut } from "@/lib/extension-activate";
+import { jsonRequest } from "@/lib/http";
 
 // In production, route through local PHP proxy to bypass Edge Function CORS
 const IS_PROD = import.meta.env.PROD;
@@ -8,17 +8,7 @@ const BASE = IS_PROD
   : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/work-sessions`;
 
 async function request(path: string, options?: RequestInit) {
-  const res = await fetch(`${BASE}/${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-      ...options?.headers,
-    },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+  return jsonRequest(`${BASE}/${path}`, options);
 }
 
 export const workSessionsApi = {

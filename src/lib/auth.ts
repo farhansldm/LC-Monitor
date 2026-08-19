@@ -76,6 +76,7 @@ function clearStoredUser() {
 export async function login(email: string, password: string): Promise<AuthResponse> {
   const res = await fetch(`${FUNCTIONS_URL}/login`, {
     method: "POST",
+    cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
@@ -95,6 +96,7 @@ export async function signup(
 ): Promise<AuthResponse> {
   const res = await fetch(`${FUNCTIONS_URL}/signup`, {
     method: "POST",
+    cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, first_name, last_name, role }),
   });
@@ -109,6 +111,7 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   const token = getToken();
   if (!token) return null;
   const res = await fetch(`${FUNCTIONS_URL}/me`, {
+    cache: "no-store",
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {

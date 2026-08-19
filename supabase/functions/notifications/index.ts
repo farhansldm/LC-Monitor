@@ -33,11 +33,30 @@ function formatHours(seconds: number): string {
   return `${h}h ${min}m`;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; stubbed: boolean }> {
+function esc(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function layout(title: string, body: string): string {
+  return `<!DOCTYPE html><html><body style="margin:0;background:#0f172a;padding:24px;font-family:Segoe UI,Arial,sans-serif;color:#e2e8f0">
+  <div style="max-width:560px;margin:0 auto;background:#1e293b;border-radius:12px;padding:28px">
+    <p style="margin:0 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#5eead4">LC Monitor</p>
+    <h1 style="margin:0 0 16px;font-size:20px;color:#fff">${esc(title)}</h1>
+    ${body}
+    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8">This is an automated message from LC Monitor.</p>
+  </div></body></html>`;
+}
+
+async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; stubbed: boolean; error?: string }> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("RESEND_FROM") || "LC Monitor <beth.t@example.com>";
+  if (!to || !to.includes("@")) return { sent: false, stubbed: false, error: "invalid recipient" };
   if (!apiKey) {
-    console.log("[notifications stub]", { to, subject, html: html.slice(0, 200) });
+    console.log("[notifications stub]", { to, subject });
     return { sent: false, stubbed: true };
   }
   const res = await fetch("https://api.resend.com/emails", {
@@ -51,7 +70,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ s
   if (!res.ok) {
     const text = await res.text();
     console.error("Resend error", res.status, text);
-    throw new Error(`Resend failed: ${res.status}`);
+    throw new Error(`Resend failed: ${res.status} ${text.slice(0, 200)}`);
   }
   return { sent: true, stubbed: false };
 }
@@ -97,14 +116,62 @@ serve(async (req) => {
     if (type === "leave") {
       const to = typeof body.to === "string" ? body.to : "";
       const status = body.status === "APPROVED" ? "APPROVED" : "REJECTED";
-      const date = body.date || "";
+      const date = esc(body.date || "");
       const comment = typeof body.comment === "string" ? body.comment : "";
-      const name = typeof body.name === "string" ? body.name : "there";
+      const name = esc(typeof body.name === "string" ? body.name : "there");
       if (!to) return json({ error: "to is required" }, 400);
       const result = await sendEmail(
         to,
         `Leave request ${status.toLowerCase()}`,
-        `<p>Hi ${name},</p><p>Your leave request for <strong>${date}</strong> was <strong>${status}</strong>.</p>${comment ? `<p>Comment: ${comment}</p>` : ""}<p>— LC Monitor</p>`,
+        layout(`Leave ${status.toLowerCase()}`, `<p>Hi ${name},</p><p>Your leave request for <strong>${date}</strong> was <strong>${status}</strong>.</p>${comment ? `<p>Comment: ${esc(comment)}</p>` : ""}`),
+      );
+      return json({ ok: true, ...result });
+    }
+
+    if (type === "leave-submitted") {
+      const recipients = Array.isArray(body.to)
+        ? body.to.filter((x: unknown) => typeof x === "string")
+        : typeof body.to === "string" ? [body.to] : [];
+      const employee = esc(body.employee_name || "An employee");
+      const date = esc(body.date || "");
+      const reason = esc(body.reason || "");
+      if (recipients.length === 0) return json({ error: "to is required" }, 400);
+      const results = [];
+      for (const to of [...new Set(recipients)]) {
+        results.push(await sendEmail(
+          to,
+          `Leave request pending — ${employee}`,
+          layout("New leave request", `<p><strong>${employee}</strong> submitted leave for <strong>${date}</strong>.</p><p>Reason: ${reason}</p><p>Review it in LC Monitor → Leave Requests.</p>`),
+        ));
+      }
+      return json({ ok: true, count: results.length, results });
+    }
+
+    if (type === "welcome") {
+      const to = typeof body.to === "string" ? body.to : "";
+      const name = esc(body.name || "there");
+      const email = esc(body.email || to);
+      const password = esc(body.password || "");
+      const appUrl = esc(body.app_url || "https://farhan.careerjumpstart.com.au");
+      if (!to || !password) return json({ error: "to and password are required" }, 400);
+      const result = await sendEmail(
+        to,
+        "Your LC Monitor account",
+        layout("Welcome to LC Monitor", `<p>Hi ${name},</p><p>An administrator created your account.</p>
+          <p>Sign in at <a href="${appUrl}" style="color:#5eead4">${appUrl}</a></p>
+          <p>Email: <strong>${email}</strong><br/>Temporary password: <strong>${password}</strong></p>
+          <p>Change this password after you log in.</p>`),
+      );
+      return json({ ok: true, ...result });
+    }
+
+    if (type === "test") {
+      const to = typeof body.to === "string" ? body.to : "";
+      if (!to) return json({ error: "to is required" }, 400);
+      const result = await sendEmail(
+        to,
+        "LC Monitor test email",
+        layout("Email is working", `<p>This test message was sent from LC Monitor to <strong>${esc(to)}</strong>.</p>`),
       );
       return json({ ok: true, ...result });
     }
@@ -131,7 +198,7 @@ serve(async (req) => {
         const result = await sendEmail(
           u.email,
           "You are still clocked in",
-          `<p>Hi ${u.first_name || "there"},</p><p>You still have an open work session from today (${date}). Please clock out in LC Monitor if you have finished work.</p>`,
+          layout("Still clocked in", `<p>Hi ${esc(u.first_name || "there")},</p><p>You still have an open work session from today (${esc(date)}). Please clock out in LC Monitor if you have finished work.</p>`),
         );
         results.push({ user_id: session.user_id, ...result });
       }
@@ -161,14 +228,14 @@ serve(async (req) => {
         const result = await sendEmail(
           u.email,
           `Yesterday's hours — ${date}`,
-          `<p>Hi ${u.first_name || "there"},</p><p>You logged <strong>${hours}</strong> of active time on ${date}.</p><p>— LC Monitor</p>`,
+          layout("Daily hours", `<p>Hi ${esc(u.first_name || "there")},</p><p>You logged <strong>${esc(hours)}</strong> of active time on ${esc(date)}.</p>`),
         );
         results.push({ user_id: u.id, hours, ...result });
       }
       return json({ ok: true, date, count: results.length, results });
     }
 
-    return json({ error: "Unknown type. Use leave, missed-clock-out, or daily-summary" }, 400);
+    return json({ error: "Unknown type. Use leave, leave-submitted, welcome, test, missed-clock-out, or daily-summary" }, 400);
   } catch (err) {
     console.error("notifications error", err);
     return json({ error: "Internal server error" }, 500);

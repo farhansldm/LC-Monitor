@@ -56,8 +56,8 @@ export default function ShiftSchedulingPage() {
 
   const createMut = useMutation({
     mutationFn: () => shiftsApi.createShift(name, startTime, endTime),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-shifts"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-shifts"] });
       setName("");
       toast({ title: "Shift created" });
     },
@@ -67,8 +67,8 @@ export default function ShiftSchedulingPage() {
   const updateMut = useMutation({
     mutationFn: () =>
       shiftsApi.updateShift(editing!.id, { name, start_time: startTime, end_time: endTime }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-shifts"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-shifts"] });
       setEditing(null);
       setName("");
       setStartTime("09:00");
@@ -80,8 +80,8 @@ export default function ShiftSchedulingPage() {
 
   const assignMut = useMutation({
     mutationFn: () => shiftsApi.assignShift(assignUserId, assignShiftId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-shifts"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-shifts"] });
       toast({ title: "Shift assigned" });
     },
     onError: (e: Error) => toast({ title: "Assign failed", description: e.message, variant: "destructive" }),
@@ -122,8 +122,25 @@ export default function ShiftSchedulingPage() {
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (editing) updateMut.mutate();
-                else createMut.mutate();
+                if (editing) {
+                  updateMut.mutate();
+                  return;
+                }
+                const exists = shifts.some(
+                  (s) =>
+                    s.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+                    toTimeInput(s.start_time) === startTime &&
+                    toTimeInput(s.end_time) === endTime
+                );
+                if (exists) {
+                  toast({
+                    title: "Duplicate shift",
+                    description: "A shift with this name and hours already exists.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                createMut.mutate();
               }}
             >
               <div className="space-y-1.5">

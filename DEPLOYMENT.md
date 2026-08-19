@@ -102,13 +102,38 @@ Then open `https://your-domain.com` and log in.
 
 ---
 
-## Emails (optional)
+## Emails
 
-The app works without this. Emails (leave, still clocked in, daily hours) only send if you add a [Resend](https://resend.com) API key:
+Emails are sent by the `notifications` Edge Function via [Resend](https://resend.com).
 
-```bash
-npx supabase secrets set RESEND_API_KEY=re_...
+1. Create an API key in Resend.
+2. For production, verify your domain (e.g. `careerjumpstart.com.au`) and use that From address. Until then, Resend only delivers to the email you signed up with.
+
+```powershell
+npx supabase secrets set RESEND_API_KEY=re_your_key
+npx supabase secrets set RESEND_FROM="LC Monitor <leo.a@example.org>"
+npx supabase functions deploy notifications
+npx supabase functions deploy admin
+npx supabase functions deploy work-sessions
 ```
+
+Then open Admin → Email and send a test.
+
+| Event | Recipients |
+|---|---|
+| New user created | That user (login details) |
+| Leave submitted | Team manager + Admin/HR |
+| Leave approved/rejected | Employee |
+| Still clocked in | Open sessions that day (schedule in Supabase → Edge Functions → notifications → Add schedule, body `{"type":"missed-clock-out"}`, cron `0 14 * * 1-5` = 7:30pm IST weekdays) |
+| Yesterday's hours | People who worked yesterday (schedule body `{"type":"daily-summary"}`, cron `30 3 * * *` = 9:00am IST) |
+
+Scheduled jobs must send header `x-cron-secret` matching a secret:
+
+```powershell
+npx supabase secrets set CRON_SECRET=a-long-random-string
+```
+
+Or invoke with the service role key as `Authorization: Bearer`.
 
 ---
 

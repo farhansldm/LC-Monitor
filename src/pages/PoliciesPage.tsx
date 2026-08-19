@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { policiesApi } from "@/lib/policies-api";
+import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { isAdminRole } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,8 +33,8 @@ export default function PoliciesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["policies"],
-    queryFn: policiesApi.getPolicies,
+    queryKey: ["policies", isAdmin ? "admin" : "all"],
+    queryFn: isAdmin ? adminApi.getPolicies : policiesApi.getPolicies,
   });
   const policies: Policy[] = data?.policies ?? [];
 
@@ -42,8 +43,8 @@ export default function PoliciesPage() {
       editingId
         ? policiesApi.updatePolicy(editingId, title.trim(), content.trim())
         : policiesApi.createPolicy(title.trim(), content.trim()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["policies"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["policies"] });
       setTitle("");
       setContent("");
       setEditingId(null);
@@ -54,8 +55,8 @@ export default function PoliciesPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => policiesApi.deletePolicy(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["policies"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["policies"] });
       toast({ title: "Policy deleted" });
     },
     onError: (e: Error) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),

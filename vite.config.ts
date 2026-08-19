@@ -12,10 +12,22 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    {
+      name: "strip-crossorigin",
+      transformIndexHtml(html: string) {
+        return html.replace(/ crossorigin(?:="[^"]*")?/g, "");
+      },
+    },
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  build: {
+    chunkSizeWarningLimit: 1600,
   },
 }));

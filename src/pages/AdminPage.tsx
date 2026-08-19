@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Settings, Users, UsersRound, CalendarClock, Building2, BarChart3, ScrollText, Network, Globe,
+  Settings, Users, UsersRound, CalendarClock, Building2, BarChart3, ScrollText, Network, Globe, Mail,
 } from "lucide-react";
 
 const links = [
@@ -12,6 +12,7 @@ const links = [
   { title: "Analytics", href: "/admin/analytics", desc: "Monthly hours, late/early, WFH mix", icon: BarChart3 },
   { title: "Audit logs", href: "/admin/audit-logs", desc: "Clock-in/out and admin actions", icon: ScrollText },
   { title: "Trusted IPs", href: "/admin/ip-config", desc: "Office CIDR ranges for SITE vs WFH", icon: Network },
+  { title: "Email", href: "/admin/email", desc: "Resend setup, test send, leave and hours emails", icon: Mail },
   { title: "History", href: "/admin/browser-history", desc: "Employee browser activity", icon: Globe },
 ];
 

@@ -1,4 +1,4 @@
-import { getAuthHeaders } from "@/lib/auth";
+import { jsonRequest } from "@/lib/http";
 
 // In production, route through local PHP proxy to bypass Edge Function CORS
 const IS_PROD = import.meta.env.PROD;
@@ -7,17 +7,7 @@ const BASE = IS_PROD
   : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin`;
 
 async function request(path: string, options?: RequestInit) {
-  const res = await fetch(`${BASE}/${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-      ...options?.headers,
-    },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+  return jsonRequest(`${BASE}/${path}`, options);
 }
 
 export const adminApi = {
@@ -33,6 +23,7 @@ export const adminApi = {
     team_id?: string | null;
     department_id?: string | null;
     status?: string;
+    job_title?: string | null;
   }) => request("users", { method: "POST", body: JSON.stringify(body) }),
   updateUser: (id: string, body: Record<string, unknown>) =>
     request(`users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -73,4 +64,7 @@ export const adminApi = {
     const qs = q.toString();
     return request(qs ? `audit-logs?${qs}` : "audit-logs");
   },
+  getEmailStatus: () => request("email-status"),
+  sendTestEmail: (to?: string) =>
+    request("email-test", { method: "POST", body: JSON.stringify(to ? { to } : {}) }),
 };

@@ -1,8 +1,12 @@
 <?php
-// Prevent CORS issues (just in case, though it's same-origin)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: *");
 header("Access-Control-Allow-Methods: *");
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("Expires: 0");
+header("CDN-Cache-Control: no-store");
+header("Surrogate-Control: no-store");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -61,6 +65,11 @@ $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
 curl_close($ch);
 
 http_response_code($httpCode);
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("Expires: 0");
+header("CDN-Cache-Control: no-store");
+header("Surrogate-Control: no-store");
 if ($contentType) {
     header("Content-Type: $contentType");
 }

@@ -26,8 +26,8 @@ export default function DepartmentsPage() {
 
   const createMut = useMutation({
     mutationFn: () => adminApi.createDepartment(name.trim()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-departments"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-departments"] });
       setName("");
       toast({ title: "Department created" });
     },
@@ -36,8 +36,8 @@ export default function DepartmentsPage() {
 
   const updateMut = useMutation({
     mutationFn: () => adminApi.updateDepartment(editingId!, name.trim()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-departments"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-departments"] });
       setEditingId(null);
       setName("");
       toast({ title: "Department renamed" });
@@ -47,8 +47,8 @@ export default function DepartmentsPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => adminApi.deleteDepartment(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-departments"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-departments"] });
       toast({ title: "Department deleted" });
     },
     onError: (e: Error) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),

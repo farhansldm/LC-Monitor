@@ -92,8 +92,8 @@ export default function AdminUsersPage() {
 
   const createMut = useMutation({
     mutationFn: adminApi.createUser,
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    onSuccess: async (_, vars) => {
+      await qc.refetchQueries({ queryKey: ["admin-users"] });
       setCreatedUser({ email: vars.email, password: vars.password });
       toast({ title: "User created" });
     },
@@ -103,8 +103,8 @@ export default function AdminUsersPage() {
   const updateMut = useMutation({
     mutationFn: ({ id, ...body }: Record<string, unknown> & { id: string }) =>
       adminApi.updateUser(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["admin-users"] });
       setOpen(false);
       setEditUser(null);
       toast({ title: "User updated" });
@@ -164,7 +164,7 @@ export default function AdminUsersPage() {
         department_id: form.department_id || null,
         status: form.status,
         job_title: form.job_title.trim() || null,
-      } as Parameters<typeof createMut.mutate>[0]);
+      });
     }
   };
 
@@ -274,7 +274,7 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Department</Label>
-                  <Select value={form.department_id} onValueChange={(v) => setForm({ ...form, department_id: v === "_none" ? "" : v })}>
+                  <Select value={form.department_id || "_none"} onValueChange={(v) => setForm({ ...form, department_id: v === "_none" ? "" : v })}>
                     <SelectTrigger><SelectValue placeholder="No department" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_none">No department</SelectItem>
@@ -286,7 +286,7 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Team</Label>
-                  <Select value={form.team_id} onValueChange={(v) => setForm({ ...form, team_id: v === "_none" ? "" : v })}>
+                  <Select value={form.team_id || "_none"} onValueChange={(v) => setForm({ ...form, team_id: v === "_none" ? "" : v })}>
                     <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_none">No team</SelectItem>

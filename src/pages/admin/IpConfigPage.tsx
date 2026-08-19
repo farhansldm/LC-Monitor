@@ -38,8 +38,8 @@ export default function IpConfigPage() {
 
   const createMut = useMutation({
     mutationFn: () => adminApi.createIpRange(cidr.trim(), label.trim() || undefined),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["ip-ranges"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["ip-ranges"] });
       setCidr("");
       setLabel("");
       toast({ title: "Range added" });
@@ -49,8 +49,8 @@ export default function IpConfigPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => adminApi.deleteIpRange(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["ip-ranges"] });
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["ip-ranges"] });
       toast({ title: "Range removed" });
     },
     onError: (e: Error) => toast({ title: "Could not remove range", description: e.message, variant: "destructive" }),

@@ -48,13 +48,7 @@ async function requireAuth(req: Request, jwtSecret: string): Promise<Record<stri
   return await verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
 }
 
-async function notifyLeaveDecision(payload: {
-  to: string;
-  name: string;
-  date: string;
-  status: string;
-  comment: string;
-}) {
+async function notifyEmail(payload: Record<string, unknown>) {
   try {
     const base = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -66,11 +60,21 @@ async function notifyLeaveDecision(payload: {
         apikey: key,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ type: "leave", ...payload }),
+      body: JSON.stringify(payload),
     });
   } catch (err) {
-    console.error("leave notification failed", err);
+    console.error("notification failed", err);
   }
+}
+
+async function notifyLeaveDecision(payload: {
+  to: string;
+  name: string;
+  date: string;
+  status: string;
+  comment: string;
+}) {
+  await notifyEmail({ type: "leave", ...payload });
 }
 
 function isAdminRole(role: string) {
@@ -1390,6 +1394,38 @@ serve(async (req) => {
         .select("id, user_id, date, reason, status, created_at")
         .single();
       if (error) throw error;
+
+      const { data: requester } = await supabase
+        .from("users")
+        .select("first_name, last_name, email, team_id")
+        .eq("id", userId)
+        .maybeSingle();
+      const employeeName = `${requester?.first_name || ""} ${requester?.last_name || ""}`.trim() || "Employee";
+      const to: string[] = [];
+      if (requester?.team_id) {
+        const { data: team } = await supabase.from("teams").select("manager_id").eq("id", requester.team_id).maybeSingle();
+        if (team?.manager_id) {
+          const { data: mgr } = await supabase.from("users").select("email").eq("id", team.manager_id).maybeSingle();
+          if (mgr?.email) to.push(mgr.email);
+        }
+      }
+      const { data: admins } = await supabase
+        .from("users")
+        .select("email")
+        .in("role", ["ADMIN", "HR_MANAGER"])
+        .eq("status", "ACTIVE");
+      (admins || []).forEach((a: { email?: string }) => { if (a.email) to.push(a.email); });
+      const recipients = [...new Set(to)].filter((e) => e !== requester?.email);
+      if (recipients.length > 0) {
+        await notifyEmail({
+          type: "leave-submitted",
+          to: recipients,
+          employee_name: employeeName,
+          date,
+          reason: reason.trim().slice(0, 500),
+        });
+      }
+
       return json({ leave }, 201);
     }
 
@@ -1512,9 +1548,10 @@ serve(async (req) => {
         .order("start_time", { ascending: true });
       if (error) throw error;
 
-      const { data: assignments } = await supabase
+      const { data: assignments, error: assignError } = await supabase
         .from("user_shifts")
         .select("id, user_id, shift_id, effective_from");
+      if (assignError) throw assignError;
 
       const userIds = [...new Set((assignments || []).map((a: { user_id: string }) => a.user_id))];
       let usersById: Record<string, { first_name: string; last_name: string; email: string }> = {};
@@ -1554,6 +1591,17 @@ serve(async (req) => {
       if (!name) return json({ error: "name is required" }, 400);
       if (!timeRe.test(startTime) || !timeRe.test(endTime)) {
         return json({ error: "start_time and end_time must be HH:MM" }, 400);
+      }
+
+      const { data: duplicate } = await supabase
+        .from("shifts")
+        .select("id")
+        .eq("name", name)
+        .eq("start_time", startTime)
+        .eq("end_time", endTime)
+        .maybeSingle();
+      if (duplicate) {
+        return json({ error: "A shift with this name and hours already exists" }, 409);
       }
 
       const { data: shift, error } = await supabase
