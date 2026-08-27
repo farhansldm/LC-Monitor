@@ -1,284 +1,359 @@
 # LC Monitor
 
-> **Internal Employee Time & Attendance Tracking System for AIIDA**
-> Built with React 18 + Vite + Supabase + Chrome Extension
-
----
-
-## Project Overview
-
-LC Monitor is a full-stack workforce monitoring web application. It tracks employee work hours, attendance, breaks, browser activity, and screenshots — with real-time chat, kanban tasks, policies, reports, and role-based access for Employees, Managers, HR Managers, and Administrators.
+LC Monitor is an internal workforce monitoring and attendance platform for AIIDA. It combines a React web dashboard, Supabase PostgreSQL/Edge Functions, and a Chrome MV3 extension to manage employee work sessions, breaks, attendance, leave, screenshots, browser history, chat, tasks, reports, and HR/admin operations.
 
 ```
-Web Dashboard (React/Vite)  ◄──►  Supabase (PostgreSQL + Edge Functions)  ◄──►  Chrome Extension
+React/Vite Dashboard <-> Supabase Edge Functions <-> PostgreSQL
+        |                         ^
+        v                         |
+ Chrome MV3 Extension ------------+
 ```
 
-**Active Supabase project:** `ivipigucanknjjvmnble`  
-To point at a different project, see **`DEPLOYMENT.md`**. Do not commit `.env`.
+Active Supabase project reference: `ivipigucanknjjvmnble`
 
----
+Do not commit `.env`, `extension/config.js`, or `public/supabase-proxy.php` when they contain real credentials.
+
+## Documentation Map
+
+| Document | Purpose |
+| --- | --- |
+| `README.md` | Project overview, setup, workflows, and day-to-day commands |
+| `DEPLOYMENT.md` | Production deployment runbook and operational notes |
+| `docs/ARCHITECTURE.md` | System architecture, data flow, security model, and module map |
+| `docs/API_REFERENCE.md` | Edge Function endpoint reference used by the frontend and extension |
+| `docs/CHROME_EXTENSION.md` | Browser extension setup, behavior, and troubleshooting |
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
+| Area | Technology |
+| --- | --- |
 | Frontend | React 18, TypeScript, Vite |
-| UI | ShadCN UI + Tailwind CSS |
-| State | TanStack React Query v5 |
+| UI | Tailwind CSS, shadcn/ui, Radix UI, lucide-react |
 | Routing | React Router DOM v6 |
+| Data fetching | TanStack React Query v5 |
 | Charts | Recharts |
-| Real-time | Supabase Realtime (WebSockets) |
-| Voice/Video | WebRTC (peer-to-peer) |
-| Backend | Supabase Edge Functions (Deno/TypeScript) |
-| Database | PostgreSQL (Supabase) |
-| Auth | Custom JWT (not Supabase Auth SDK) |
-| Extension | Chrome Extension MV3 |
+| Backend | Supabase Edge Functions, Deno, TypeScript |
+| Database | Supabase PostgreSQL |
+| Realtime | Supabase Realtime and WebRTC for chat/calls |
+| Extension | Chrome Extension Manifest V3 |
+| Testing | Vitest, React Testing Library |
 
----
+## Core Features
 
-## Quick Start (Local Development)
+| Module | What it supports |
+| --- | --- |
+| Authentication | Custom email/password login, app-issued JWTs, role-aware sessions |
+| Workday | Clock in/out, break in/out, active status, multi-session daily history |
+| Attendance | Monthly attendance view, correction requests, manager/admin review |
+| Timesheets | Session history, employee notes, manager comments, CSV export |
+| Leave | Employee leave requests, manager/admin/HR approval, attendance sync |
+| Shifts | Shift creation, user assignment, late and early flagging |
+| Teams | Team assignment, manager overview, active employees |
+| Departments | Admin-managed departments and user department assignment |
+| Reports | Date, employee, department, WFH/site, late, and early filters |
+| Analytics | Monthly hours, break averages, WFH/site split, late/early counts |
+| Policies | Employee policy reading and admin/HR policy management |
+| Monitoring | Screenshot upload, browser-history duration tracking, manager views |
+| Chat | Groups, direct messages, message search, WebRTC call UI |
+| Tasks | Kanban-style task CRUD and activity history |
+| Email | Welcome, leave, test, missed clock-out, and daily-summary notifications |
+| Audit | Admin/HR audit logs for operational changes |
+
+## Roles
+
+| Role | Access summary |
+| --- | --- |
+| `EMPLOYEE` | Dashboard, workday, timesheet, attendance, leave, policies, chat, tasks |
+| `MANAGER` | Employee access plus team overview, reports, screenshots, browser history, approvals |
+| `HR_MANAGER` | Admin-level HR/admin access without being named `ADMIN` |
+| `ADMIN` | Full user, team, department, shift, policy, IP, audit, analytics, and email administration |
+
+Role helpers live in `src/lib/roles.ts`.
+
+## Quick Start
 
 ### Prerequisites
-- Node.js ≥ 18
-- npm
 
-### Setup
+- Node.js 18 or newer
+- npm
+- Supabase CLI for database/function deployment
+- Chrome or another Chromium browser for extension testing
+
+### Install and run
 
 ```bash
-# 1. Clone
-git clone https://github.com/farhansldm/LC-Monitor.git
-cd LC-Monitor
-
-# 2. Install dependencies
 npm install
-
-# 3. Environment
-#    cp .env.example .env
-#    Fill VITE_SUPABASE_URL, VITE_SUPABASE_PROJECT_ID, VITE_SUPABASE_PUBLISHABLE_KEY
-#    DO NOT commit .env
-#    See DEPLOYMENT.md if this is a new Supabase account
-
-# 4. Start dev server
 npm run dev
-# → http://localhost:8080
 ```
 
-> In development, the app calls Supabase Edge Functions **directly** (no proxy needed).  
-> In production, API calls route through `public/supabase-proxy.php` on the web server.
+The Vite dev server runs on:
 
----
+```text
+http://localhost:8080
+```
 
-## User Roles
+### Environment files
 
-| Role | Access |
-|------|--------|
-| `EMPLOYEE` | Dashboard, My Workday, Timesheet, Attendance, Leave, Policies, Chats, Tasks |
-| `MANAGER` | + Team overview, Browser History, Screenshots, Leave approvals, Reports |
-| `HR_MANAGER` | Same admin-level access as ADMIN for HR modules (users, departments, policies, analytics, audit) |
-| `ADMIN` | Full admin panel: Users, Teams, Departments, Shifts, Analytics, Audit Logs, Trusted IPs |
+Copy the example files before local development:
 
----
+```text
+.env.example                      -> .env
+extension/config.example.js       -> extension/config.js
+public/supabase-proxy.example.php -> public/supabase-proxy.php
+```
 
-## Features
+Frontend environment variables:
 
-| Area | What it does |
-|------|----------------|
-| Clock in / out / breaks | Session tracking with IP capture, WFH vs Site classification, late/early flags vs assigned shift |
-| Attendance | Calendar, corrections, CSV export |
-| Leave | Employee submit; manager/admin approve or reject |
-| Shifts | Admin creates shifts and assigns them; employee sees times on the workday card |
-| Timesheet | Session history, notes, manager comments, CSV export |
-| Reports | Date/employee/department filters, hours/breaks/IP/WFH, CSV export |
-| Analytics | Monthly KPIs (hours, late/early, WFH vs Site, leave) |
-| Policies | Employees read company policies; admin CRUD |
-| Departments | Admin CRUD; users can be assigned a department |
-| Audit logs | Paginated event log with date and user filters |
-| Trusted IPs | Admin-configured CIDR ranges used for SITE vs WFH |
-| Chat + tasks | Real-time chat, WebRTC calls, kanban tasks |
-| Monitoring | Screenshots and browser history (duration + web-login activate) |
-| Assistant | In-app assistant wired to live attendance and timesheet data |
-| Theme | Dark/light toggle persisted in `localStorage` |
-| Email | Leave decisions, missed clock-out (8pm), daily hours (7am) via Resend or stub |
+```env
+VITE_SUPABASE_PROJECT_ID=your_project_ref
+VITE_SUPABASE_URL=https://your_project_ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_public_key
+VITE_EXTENSION_ID=
+```
 
----
+Backend Supabase secrets:
+
+```text
+JWT_SECRET
+RESEND_API_KEY
+RESEND_FROM
+CRON_SECRET
+APP_URL
+```
+
+`JWT_SECRET` is required by `auth`, `admin`, `work-sessions`, `chat`, and `tasks`. Changing it invalidates existing sessions.
+
+## Common Commands
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the local Vite app |
+| `npm run build` | Create a production build in `dist/` |
+| `npm run build:dev` | Build using Vite development mode |
+| `npm run preview` | Preview the built app locally |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run Vitest once |
+| `npm run test:watch` | Run Vitest in watch mode |
 
 ## Project Structure
 
-```
+```text
 Lc-Monitor-main/
-├── src/
-│   ├── App.tsx
-│   ├── main.tsx
-│   ├── index.css
-│   ├── contexts/
-│   │   ├── AuthContext.tsx
-│   │   └── ThemeContext.tsx
-│   ├── components/
-│   │   ├── AppLayout.tsx
-│   │   ├── AppSidebar.tsx
-│   │   ├── ProtectedRoute.tsx
-│   │   └── chat/
-│   ├── lib/
-│   │   ├── auth.ts
-│   │   ├── roles.ts
-│   │   ├── work-sessions-api.ts
-│   │   ├── attendance-api.ts
-│   │   ├── leave-api.ts
-│   │   ├── shifts-api.ts
-│   │   ├── reports-api.ts
-│   │   ├── policies-api.ts
-│   │   ├── admin-api.ts
-│   │   ├── chat-api.ts
-│   │   ├── tasks-api.ts
-│   │   └── assistant.ts
-│   └── pages/
-│       ├── LoginPage.tsx
-│       ├── Dashboard.tsx
-│       ├── EmployeeDashboardPage.tsx
-│       ├── TimesheetPage.tsx
-│       ├── AttendancePage.tsx
-│       ├── LeaveRequestsPage.tsx
-│       ├── ReportsPage.tsx
-│       ├── PoliciesPage.tsx
-│       ├── BrowserHistoryPage.tsx
-│       ├── ScreenshotsPage.tsx
-│       ├── ChatsPage.tsx
-│       ├── TasksPage.tsx
-│       ├── TeamPage.tsx
-│       └── admin/
-│           ├── AdminUsersPage.tsx
-│           ├── AdminTeamsPage.tsx
-│           ├── BrowserHistoryPage.tsx
-│           ├── ShiftSchedulingPage.tsx
-│           ├── DepartmentsPage.tsx
-│           ├── AnalyticsPage.tsx
-│           ├── AuditLogsPage.tsx
-│           └── IpConfigPage.tsx
-├── supabase/
-│   ├── functions/
-│   │   ├── auth/index.ts
-│   │   ├── work-sessions/index.ts   ← clock, leave, shifts, reports, analytics, notes, manager comments
-│   │   ├── admin/index.ts           ← users, teams, departments, policies, IP ranges, audit logs
-│   │   ├── notifications/index.ts   ← Resend (or stub): leave, missed clock-out, daily summary
-│   │   ├── chat/index.ts
-│   │   └── tasks/index.ts
-│   └── migrations/
-├── extension/
-│   ├── manifest.json
-│   ├── background.js
-│   ├── popup.html / popup.js
-│   └── config.js
-├── public/
-│   └── supabase-proxy.php           ← production CORS proxy
-├── README.md
-└── DEPLOYMENT.md
+|-- src/
+|   |-- App.tsx                         # Routes and providers
+|   |-- main.tsx                        # React entry point
+|   |-- contexts/                       # Auth and theme contexts
+|   |-- components/                     # Layout, sidebar, protected routes, UI, chat
+|   |-- pages/                          # Route pages
+|   |-- pages/admin/                    # Admin and HR management pages
+|   |-- lib/                            # API clients, auth helpers, roles, utilities
+|   |-- hooks/                          # App hooks, including WebRTC
+|   |-- integrations/supabase/          # Generated Supabase client/types
+|   |-- test/                           # Vitest setup and examples
+|-- supabase/
+|   |-- functions/                      # Edge Functions
+|   |-- migrations/                     # PostgreSQL schema migrations
+|   |-- config.toml                     # Supabase local/project config
+|-- extension/                         # Chrome MV3 extension
+|-- public/
+|   |-- supabase-proxy.example.php      # Production Edge Function proxy template
+|-- docs/                              # Architecture/API/extension documentation
+|-- DEPLOYMENT.md                      # Production runbook
 ```
 
----
+## Application Routes
 
-## Routes
-
-| Path | Page | Roles |
-|------|------|-------|
+| Path | Page | Intended roles |
+| --- | --- | --- |
 | `/login` | Login | Public |
-| `/` | Dashboard (role-switching) | All |
-| `/employee` | My Workday (Clock In/Out) | All |
-| `/timesheet` | Session History | All |
-| `/attendance` | Attendance Calendar + Corrections | All |
-| `/leave` | Leave Requests | All |
-| `/reports` | Filtered reports + CSV | MANAGER, ADMIN, HR_MANAGER |
-| `/policies` | Company policies | All (write: ADMIN / HR_MANAGER) |
-| `/chats` | Real-time Chat + WebRTC Calls | All |
-| `/tasks` | Kanban Tasks | All |
-| `/team` | Team Overview | MANAGER, ADMIN, HR_MANAGER |
-| `/browser-history` | Browser History | MANAGER, ADMIN, HR_MANAGER |
-| `/screenshots` | Screenshots | MANAGER, ADMIN, HR_MANAGER |
-| `/admin` | Admin Panel | ADMIN, HR_MANAGER |
-| `/admin/users` | User Management | ADMIN, HR_MANAGER |
-| `/admin/teams` | Team Management | ADMIN, HR_MANAGER |
-| `/admin/browser-history` | Admin Browser History | ADMIN, HR_MANAGER |
-| `/admin/shifts` | Shift Scheduling | ADMIN, HR_MANAGER |
-| `/admin/departments` | Departments | ADMIN, HR_MANAGER |
-| `/admin/analytics` | Analytics KPIs | ADMIN, HR_MANAGER |
-| `/admin/audit-logs` | Audit Logs | ADMIN, HR_MANAGER |
-| `/admin/ip-config` | Trusted office IP ranges | ADMIN, HR_MANAGER |
+| `/` | Dashboard | All authenticated users |
+| `/employee` | My Workday | All authenticated users |
+| `/timesheet` | Timesheet | All authenticated users |
+| `/attendance` | Attendance | All authenticated users |
+| `/leave` | Leave Requests | All authenticated users |
+| `/reports` | Reports | Manager, HR Manager, Admin |
+| `/policies` | Policies | All users; write access for HR/Admin |
+| `/chats` | Chat | All authenticated users |
+| `/tasks` | Tasks | All authenticated users |
+| `/team` | Team Overview | Manager, HR Manager, Admin |
+| `/browser-history` | Browser History | Manager, HR Manager, Admin |
+| `/screenshots` | Screenshots | Manager, HR Manager, Admin |
+| `/admin` | Admin Home | HR Manager, Admin |
+| `/admin/users` | User Management | HR Manager, Admin |
+| `/admin/teams` | Team Management | HR Manager, Admin |
+| `/admin/browser-history` | Admin Browser History | HR Manager, Admin |
+| `/admin/shifts` | Shift Scheduling | HR Manager, Admin |
+| `/admin/departments` | Departments | HR Manager, Admin |
+| `/admin/analytics` | Analytics | HR Manager, Admin |
+| `/admin/audit-logs` | Audit Logs | HR Manager, Admin |
+| `/admin/ip-config` | Trusted IP Ranges | HR Manager, Admin |
+| `/admin/email` | Email Settings | HR Manager, Admin |
 
----
+The route tree is defined in `src/App.tsx`; role-sensitive page behavior is enforced in UI code and Edge Functions.
 
-## Database (PostgreSQL via Supabase)
+## Authentication Model
 
-**Core tables:** `users`, `teams`, `work_sessions`, `breaks`, `attendance`, `attendance_corrections`, `browser_history`, `screenshots`, `chat_groups`, `chat_members`, `chat_messages`, `tasks`, `task_activity`, `devices`, `events`
+LC Monitor uses custom authentication implemented in `supabase/functions/auth/index.ts`.
 
-**Sprint tables:** `departments`, `shifts`, `user_shifts`, `leave_requests`, `policies`, `office_ip_ranges`
+1. Users submit email and password to `/functions/v1/auth/login`.
+2. The function validates credentials against the `users` table.
+3. Passwords are verified with PBKDF2; legacy SHA-256 hashes are migrated on successful login.
+4. The function signs a 24-hour HS256 JWT using `JWT_SECRET`.
+5. The frontend stores the token in local storage and sends it as `Authorization: Bearer <token>`.
+6. Edge Functions verify the JWT and enforce role/team access.
 
-**Session extras:** `ip_address`, `login_type` (`WFH` / `SITE`), `late_flag`, `early_flag`, `notes`, `manager_comment`
+The frontend auth helpers live in `src/lib/auth.ts` and `src/contexts/AuthContext.tsx`.
 
----
+## Backend Overview
+
+Supabase Edge Functions:
+
+| Function | Responsibility |
+| --- | --- |
+| `auth` | Login, signup, current user |
+| `work-sessions` | Clocking, breaks, attendance, leave, shifts, reports, screenshots, browser history |
+| `admin` | Users, teams, departments, policies, IP ranges, audit logs, email checks |
+| `chat` | Groups, direct messages, members, messages, search |
+| `tasks` | Task CRUD and task activity |
+| `notifications` | Resend email delivery and scheduled notification jobs |
+
+Frontend API wrappers live in `src/lib/*-api.ts`.
+
+In development the app calls Edge Functions directly:
+
+```text
+https://<project-ref>.supabase.co/functions/v1/<function>
+```
+
+In production the app calls the PHP proxy:
+
+```text
+/supabase-proxy.php?path=<function>/<endpoint>
+```
+
+## Database Overview
+
+The schema is managed by SQL files in `supabase/migrations/`.
+
+Core tables:
+
+```text
+users
+teams
+devices
+events
+work_sessions
+breaks
+attendance
+attendance_corrections
+screenshots
+browser_history
+chat_groups
+chat_group_members
+chat_messages
+tasks
+task_activity
+departments
+shifts
+user_shifts
+leave_requests
+policies
+office_ip_ranges
+```
+
+Important enums include `user_role`, `user_status`, `event_type`, `session_source`, `attendance_status`, `correction_status`, `task_status`, and `task_priority`.
 
 ## Chrome Extension
 
-The extension (`extension/`) is a Chrome MV3 service worker that:
-- Takes screenshots every **15 minutes** (`chrome.alarms`) → Edge Function → Storage
-- Tracks **tab-focus duration** and flushes history every 60 seconds via `chrome.alarms`
-- Activates from the **web dashboard login** (`content.js` + `ACTIVATE_MONITORING`) as well as the popup
+The extension in `extension/` is a Chrome Manifest V3 extension. It stores the app session, listens for clock-in and clock-out messages, captures screenshots while the user is clocked in, and uploads browser-history duration data.
 
-**To load in Chrome:**
-1. Open `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `extension/` folder
+Load it locally:
 
-Optional: set `VITE_EXTENSION_ID` to the unpacked ID and rebuild the web app.
+1. Open `chrome://extensions`.
+2. Enable Developer Mode.
+3. Click Load unpacked.
+4. Select the `extension/` folder.
+5. Log in to the web dashboard and clock in.
 
----
+See `docs/CHROME_EXTENSION.md` for full setup and troubleshooting.
 
-## Deployment
+## Development Workflow
 
-See **`DEPLOYMENT.md`** for the full runbook (build, SQL, functions, Resend, cron, extension).
+1. Pull the latest code and install dependencies with `npm install`.
+2. Copy and fill `.env`, `extension/config.js`, and `public/supabase-proxy.php` from their examples.
+3. Run `npm run dev`.
+4. Use the Supabase-hosted Edge Functions for local backend calls.
+5. Load the extension from `extension/` only when testing monitoring behavior.
+6. Run `npm run lint` and `npm run test` before shipping changes.
+7. Build with `npm run build` before deploying the frontend.
 
-### Build
-```bash
-npm run build
-# Output: dist/
-# Upload dist/ to web server (include public/supabase-proxy.php)
+## Deployment Summary
+
+High-level production steps:
+
+1. Link the Supabase project with `npx supabase link --project-ref <project-ref>`.
+2. Set required secrets, especially `JWT_SECRET`.
+3. Apply database migrations with `npx supabase db push`.
+4. Ensure the `screenshots` storage bucket exists.
+5. Deploy Edge Functions.
+6. Build the frontend with `npm run build`.
+7. Upload the contents of `dist/` to a PHP-capable host.
+8. Confirm `supabase-proxy.php` is deployed and points at the correct project.
+9. Load/package the Chrome extension and configure the extension ID if needed.
+
+Use `DEPLOYMENT.md` as the full runbook.
+
+## Email and Scheduled Jobs
+
+Emails are handled by the `notifications` Edge Function. If `RESEND_API_KEY` is missing, the function returns stubbed email responses instead of sending real email.
+
+Supported notification types:
+
+```text
+leave
+leave-submitted
+welcome
+test
+missed-clock-out
+daily-summary
 ```
 
-### Edge Functions
+Scheduled jobs must be authorized with `x-cron-secret` matching `CRON_SECRET`, or with the Supabase service role key.
+
+## Testing
+
+The project is configured for Vitest with jsdom and React Testing Library.
+
 ```bash
-supabase functions deploy work-sessions
-supabase functions deploy admin
-supabase functions deploy auth
-supabase functions deploy chat
-supabase functions deploy tasks
-supabase functions deploy notifications
+npm run test
+npm run lint
 ```
 
-### Database Migrations
-```bash
-supabase db push
-# OR paste SQL into Supabase dashboard → SQL Editor
-```
+Current tests live in `src/test/`. Add focused tests around shared helpers, API wrappers, and high-risk UI workflows when modifying behavior.
 
-Apply all files in `supabase/migrations/`, including:
-- `20260812_001` departments, then `20260812000200`–`005` (shifts, leave, policies, IP/flags)
-- `20260813_001_hr_manager_role.sql`
-- `20260814_001_manager_comment.sql`
+## Troubleshooting
 
-### Production proxy
-In production, the frontend calls `/supabase-proxy.php?path=work-sessions` instead of calling Supabase directly. The proxy lives at `public/supabase-proxy.php` and must be deployed with the site.
+| Problem | Likely cause | Fix |
+| --- | --- | --- |
+| Login fails for every user | Missing or changed `JWT_SECRET` | Set the secret and redeploy `auth` |
+| Production API calls fail | Proxy missing or wrong project URL | Deploy/fix `public/supabase-proxy.php` |
+| Screenshots do not appear | Extension not loaded, not clocked in, or bucket missing | Load extension, clock in, create `screenshots` bucket |
+| Browser history is empty | Extension has no session or user is clocked out | Log in, clock in, and check extension storage |
+| Emails are stubbed | `RESEND_API_KEY` not set | Set Resend secrets and redeploy notification-related functions |
+| Managers cannot see team data | Missing `team_id` or manager relationship | Check users and teams in Admin |
+| WFH/site classification is wrong | Trusted office IP ranges are missing | Add CIDR ranges under Admin -> Trusted IPs |
 
----
+## Security Notes
 
-## Sprint Status
+- Real secrets must stay out of git.
+- Edge Functions use the Supabase service role key server-side; never expose it to the browser.
+- The frontend stores only the app JWT and user profile in local storage.
+- Production requests should go through the PHP proxy only when direct Edge Function CORS is not suitable.
+- Admin and manager authorization must be enforced server-side, not only through hidden UI.
 
-**5-Day Completion Sprint — Started Aug 12, 2026**
+## Maintenance Notes
 
-| Day | Theme | Status |
-|-----|-------|--------|
-| Day 1 | DB Foundation + IP/WFH Classification | Done |
-| Day 2 | Leave Requests + Shift Scheduling + HR Manager | Done |
-| Day 3 | Departments + Reports + Analytics + CSV | Done |
-| Day 4 | Notes + Comments + Policies + Audit + IP Config | Done |
-| Day 5 | Dark Mode + Notifications + Extension polish + Deploy | Done |
-
-> See **`DEPLOYMENT.md`** for production steps.
+- Keep migrations append-only unless you are intentionally rebuilding a development database.
+- Update `src/integrations/supabase/types.ts` when the database schema changes.
+- Keep frontend API wrappers aligned with Edge Function endpoints.
+- Update this README and the relevant `docs/` file whenever a workflow, route, function, or environment variable changes.
