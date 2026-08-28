@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { CalendarClock, Plus, Pencil, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatTime12h, formatDate, toTitleCase } from "@/lib/format";
 
 function toTimeInput(value: string): string {
   return (value || "").slice(0, 5);
@@ -284,8 +285,8 @@ export default function ShiftSchedulingPage() {
                 {shifts.map((s) => (
                   <TableRow key={s.id}>
                     <TableCell className="pl-6 font-medium">{s.name}</TableCell>
-                    <TableCell className="font-mono text-sm tabular-nums">{toTimeInput(s.start_time)}</TableCell>
-                    <TableCell className="font-mono text-sm tabular-nums">{toTimeInput(s.end_time)}</TableCell>
+                    <TableCell className="font-mono text-sm tabular-nums">{formatTime12h(s.start_time)}</TableCell>
+                    <TableCell className="font-mono text-sm tabular-nums">{formatTime12h(s.end_time)}</TableCell>
                     <TableCell className="pr-6 text-right">
                       <Button
                         id={`edit-shift-${s.id}`}
@@ -327,11 +328,11 @@ export default function ShiftSchedulingPage() {
                 {assignments.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="pl-6">
-                      <p className="text-sm font-medium">{a.employee_name}</p>
+                      <p className="text-sm font-medium">{toTitleCase(a.employee_name)}</p>
                       <p className="text-[11px] text-muted-foreground">{a.employee_email}</p>
                     </TableCell>
                     <TableCell>{a.shift_name}</TableCell>
-                    <TableCell className="pr-6 font-mono text-xs">{a.effective_from}</TableCell>
+                    <TableCell className="pr-6 font-mono text-xs">{formatDate(a.effective_from)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

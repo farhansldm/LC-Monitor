@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mail } from "lucide-react";
+import { Mail, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function EmailSettingsPage() {
@@ -61,6 +61,21 @@ export default function EmailSettingsPage() {
                 </span>
               </p>
               <p className="text-xs text-muted-foreground font-mono">From: {data?.from}</p>
+              {/* Warn when the sender address is still a placeholder */}
+              {data?.from && /example\.(com|org|net)/i.test(data.from) && (
+                <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/8 px-4 py-3 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-warning">Placeholder sender address detected</p>
+                    <p className="text-muted-foreground text-xs mt-0.5">
+                      Outbound emails (leave updates, welcome, daily summaries) will fail delivery or be marked as spam.
+                      Set a verified <span className="font-mono">RESEND_FROM</span> secret and redeploy the
+                      <span className="font-mono"> notifications</span>, <span className="font-mono">admin</span>, and
+                      <span className="font-mono"> work-sessions</span> edge functions.
+                    </p>
+                  </div>
+                </div>
+              )}
               {!data?.configured && (
                 <p className="text-sm text-muted-foreground">
                   Create a free API key at resend.com, then run:

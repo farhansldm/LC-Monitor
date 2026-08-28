@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/admin-api";
 import { workSessionsApi } from "@/lib/work-sessions-api";
 import { isAdminRole } from "@/lib/roles";
+import { toTitleCase } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,7 @@ function EmployeeDashboard() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="page-heading">Good {greeting}{user?.first_name ? `, ${user.first_name}` : ""}!</h1>
+          <h1 className="page-heading">Good {greeting}{user?.first_name ? `, ${toTitleCase(user.first_name)}` : ""}!</h1>
           <p className="page-subheading">Here's your workday overview</p>
         </div>
         <div className="flex gap-2">
@@ -303,7 +304,7 @@ function ManagerDashboard() {
                           {m.first_name[0]}{m.last_name[0]}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{m.first_name} {m.last_name}</p>
+                          <p className="text-sm font-medium">{toTitleCase(m.first_name)} {toTitleCase(m.last_name)}</p>
                           <p className="text-[11px] text-muted-foreground">{m.email}</p>
                         </div>
                       </div>
@@ -402,7 +403,7 @@ function AdminDashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                        {s.user ? `${s.user.first_name} ${s.user.last_name}` : "Unknown"}
+                        {s.user ? `${toTitleCase(s.user.first_name)} ${toTitleCase(s.user.last_name)}` : "Unknown"}
                         {s.on_break && (
                           <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px] px-1.5 py-0">
                             <Coffee className="h-2.5 w-2.5 mr-0.5" /> Break

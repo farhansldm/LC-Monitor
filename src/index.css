@@ -88,15 +88,16 @@
     --input: 220 16% 90%;
     --ring: 222 60% 28%;
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 220 14% 65%;
-    --sidebar-primary: 164 55% 46%;
+    /* Light-mode sidebar — white/light-gray so it participates in theme toggle */
+    --sidebar-background: 220 20% 96%;
+    --sidebar-foreground: 222 30% 28%;
+    --sidebar-primary: 164 55% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 38% 17%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 222 28% 18%;
-    --sidebar-ring: 164 55% 46%;
-    --sidebar-muted: 222 18% 36%;
+    --sidebar-accent: 220 14% 88%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 16% 86%;
+    --sidebar-ring: 164 55% 36%;
+    --sidebar-muted: 220 10% 54%;
 
     --success: 160 55% 38%;
     --success-foreground: 0 0% 100%;
@@ -188,9 +189,9 @@
     background: linear-gradient(135deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.14));
   }
 
-  /* Section label */
+  /* Section label — used in sidebar headers, card labels, table headers */
   .section-label {
-    @apply text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
   }
 
   /* Page heading */

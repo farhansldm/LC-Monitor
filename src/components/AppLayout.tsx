@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { toTitleCase } from "@/lib/format";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -18,7 +19,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
               <div className="h-4 w-px bg-border/60 hidden sm:block" />
-              <span className="section-label hidden sm:inline">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hidden sm:inline">
                 Employee Time & Attendance
               </span>
             </div>
@@ -29,7 +30,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     {user.first_name[0]}{user.last_name[0]}
                   </div>
                   <span className="text-sm font-medium text-foreground">
-                    {user.first_name} {user.last_name}
+                    {toTitleCase(user.first_name)} {toTitleCase(user.last_name)}
                   </span>
                   <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0 border-border/50 text-muted-foreground">
                     {user.role}

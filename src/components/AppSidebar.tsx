@@ -29,6 +29,7 @@ import companyLogo from "@/assets/lemoncode-logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { isAdminRole, roleLabel } from "@/lib/roles";
+import { toTitleCase } from "@/lib/format";
 import {
   Sidebar,
   SidebarContent,
@@ -97,11 +98,11 @@ export function AppSidebar() {
           <img src={companyLogo} alt="LC" className="h-10 w-auto object-contain" />
         ) : (
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-white/[0.06] border border-white/[0.06] flex items-center justify-center p-1">
+            <div className="h-12 w-12 rounded-xl bg-sidebar-accent border border-sidebar-border/40 flex items-center justify-center p-1">
               <img src={companyLogo} alt="LC" className="h-full w-auto object-contain" />
             </div>
             <div>
-              <span className="text-[15px] font-display font-bold text-white tracking-tight leading-none">
+              <span className="text-[15px] font-display font-bold text-sidebar-accent-foreground tracking-tight leading-none">
                 LC Monitor
               </span>
               <span className="block text-[10px] text-sidebar-muted font-medium tracking-[0.12em] uppercase mt-0.5">
@@ -129,8 +130,8 @@ export function AppSidebar() {
                       isActive={active}
                       tooltip={item.title}
                       className={`rounded-lg h-9 transition-all duration-150 ${active
-                          ? "bg-sidebar-accent text-white font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-white/90"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                         }`}
                     >
                       <NavLink to={item.url} end>
@@ -196,12 +197,12 @@ export function AppSidebar() {
         {user && !collapsed && (
           <div className="mb-2.5 px-1">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/60 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/60 flex items-center justify-center text-[11px] font-bold text-sidebar-accent-foreground shrink-0">
                 {user.first_name[0]}{user.last_name[0]}
               </div>
               <div className="min-w-0">
-                <div className="text-[13px] font-medium text-white/90 truncate leading-tight">
-                  {user.first_name} {user.last_name}
+                <div className="text-[13px] font-medium text-sidebar-accent-foreground truncate leading-tight">
+                  {toTitleCase(user.first_name)} {toTitleCase(user.last_name)}
                 </div>
                 <Badge className={`text-[9px] px-1.5 py-0 font-semibold mt-0.5 border ${roleBadge[user.role] || ""}`}>
                   {roleLabel(user.role)}

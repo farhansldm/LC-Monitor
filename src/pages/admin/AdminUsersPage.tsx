@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/lib/admin-api";
 import { roleLabel } from "@/lib/roles";
+import { toTitleCase } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -337,8 +338,8 @@ export default function AdminUsersPage() {
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.first_name} {u.last_name}</TableCell>
-                    <TableCell className="text-muted-foreground">{u.job_title || "—"}</TableCell>
+                    <TableCell className="font-medium">{toTitleCase(u.first_name)} {toTitleCase(u.last_name)}</TableCell>
+                    <TableCell className="text-muted-foreground">{toTitleCase(u.job_title) || "—"}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>{roleBadge(u.role)}</TableCell>
                     <TableCell>

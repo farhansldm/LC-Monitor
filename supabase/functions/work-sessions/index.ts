@@ -1803,7 +1803,7 @@ serve(async (req) => {
 
       const { data: sessions, error } = await supabase
         .from("work_sessions")
-        .select("date, total_active_seconds, end_time, start_time, late_flag, early_flag, login_type")
+        .select("user_id, date, total_active_seconds, end_time, start_time, late_flag, early_flag, login_type")
         .gte("date", monthStart)
         .lte("date", monthEnd);
       if (error) throw error;
@@ -1814,10 +1814,13 @@ serve(async (req) => {
       let earlyCount = 0;
       let wfh = 0;
       let site = 0;
+      // byDate: total seconds per calendar day (for chart)
       const byDate: Record<string, number> = {};
+      // byUserDay: seconds keyed by "user_id|date" — used for avg hours/day per person
+      const byUserDay: Record<string, number> = {};
 
       list.forEach((s: {
-        date: string; total_active_seconds?: number; end_time: string | null; start_time: string;
+        user_id: string; date: string; total_active_seconds?: number; end_time: string | null; start_time: string;
         late_flag?: boolean; early_flag?: boolean; login_type?: string | null;
       }) => {
         let sec = s.total_active_seconds || 0;
@@ -1826,13 +1829,20 @@ serve(async (req) => {
         }
         totalSec += sec;
         byDate[s.date] = (byDate[s.date] || 0) + sec;
+        const userDayKey = `${s.user_id}|${s.date}`;
+        byUserDay[userDayKey] = (byUserDay[userDayKey] || 0) + sec;
         if (s.late_flag) lateCount++;
         if (s.early_flag) earlyCount++;
         if (s.login_type === "WFH") wfh++;
         if (s.login_type === "SITE") site++;
       });
 
-      const workDays = Object.keys(byDate).length || 1;
+      // Average hours per user-day: sum each user-day's seconds then average
+      const userDayValues = Object.values(byUserDay);
+      const avgHoursPerDay = userDayValues.length
+        ? Math.round((userDayValues.reduce((a, b) => a + b, 0) / userDayValues.length / 3600) * 10) / 10
+        : 0;
+
       const { data: breaks } = await supabase
         .from("breaks")
         .select("duration_seconds, date")
@@ -1858,7 +1868,7 @@ serve(async (req) => {
         month_start: monthStart,
         month_end: monthEnd,
         total_hours: Math.round((totalSec / 3600) * 10) / 10,
-        avg_hours_per_day: Math.round((totalSec / workDays / 3600) * 10) / 10,
+        avg_hours_per_day: avgHoursPerDay,
         avg_break_seconds: avgBreak,
         late_count: lateCount,
         early_count: earlyCount,
