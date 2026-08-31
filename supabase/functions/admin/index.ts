@@ -765,7 +765,7 @@ serve(async (req) => {
       const result = await notifyEmail({ type: "test", to }) as { ok?: boolean; error?: string; sent?: boolean };
       if (result?.error || result?.ok === false) {
         const message = result.error || "Send failed";
-        const status = /RESEND_|verified|sender|domain|API key/i.test(message) ? 400 : 502;
+        const status = /RESEND_|Resend|verified|sender|domain|API key/i.test(message) ? 400 : 502;
         return json({ error: message }, status);
       }
       return json(result);

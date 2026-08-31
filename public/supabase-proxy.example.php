@@ -2,7 +2,7 @@
 // Copy this file to supabase-proxy.php and set YOUR project URL.
 
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: *");
+header("Access-Control-Allow-Headers: authorization, x-lc-authorization, content-type, apikey, x-client-info");
 header("Access-Control-Allow-Methods: *");
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
@@ -38,9 +38,26 @@ if (empty($path)) {
 $SUPABASE_FUNCTIONS_BASE = "https://your_project_ref.supabase.co/functions/v1/";
 $supabaseUrl = $SUPABASE_FUNCTIONS_BASE . $path;
 
+$incomingHeaders = function_exists('getallheaders') ? getallheaders() : [];
+$headersByName = [];
+foreach ($incomingHeaders as $name => $value) {
+    $headersByName[strtolower($name)] = $value;
+}
+
+$authorization =
+    $headersByName['authorization'] ??
+    $headersByName['x-lc-authorization'] ??
+    ($_SERVER['HTTP_AUTHORIZATION'] ?? null) ??
+    ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null) ??
+    ($_SERVER['HTTP_X_LC_AUTHORIZATION'] ?? null);
+
 $headers = [];
-foreach (getallheaders() as $name => $value) {
-    if (in_array(strtolower($name), ['authorization', 'content-type', 'apikey', 'x-client-info'])) {
+if ($authorization) {
+    $headers[] = "Authorization: $authorization";
+}
+
+foreach ($headersByName as $name => $value) {
+    if (in_array($name, ['content-type', 'apikey', 'x-client-info'])) {
         $headers[] = "$name: $value";
     }
 }

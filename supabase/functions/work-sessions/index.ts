@@ -850,9 +850,10 @@ serve(async (req) => {
         .order("visited_at", { ascending: false });
 
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        const bounds = istDateBoundsUtc(dateParam);
         query = query
-          .gte("visited_at", `${dateParam}T00:00:00.000Z`)
-          .lte("visited_at", `${dateParam}T23:59:59.999Z`);
+          .gte("visited_at", bounds.start)
+          .lt("visited_at", bounds.end);
       }
 
       const { data, error } = await query;

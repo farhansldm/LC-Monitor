@@ -73,7 +73,11 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ s
   if (!res.ok) {
     const text = await res.text();
     console.error("Resend error", res.status, text);
-    throw new Error(`Resend failed: ${res.status} ${text.slice(0, 200)}`);
+    return {
+      sent: false,
+      stubbed: false,
+      error: `Resend failed: ${res.status} ${text.slice(0, 300)}`,
+    };
   }
   return { sent: true, stubbed: false };
 }
@@ -241,6 +245,6 @@ serve(async (req) => {
     return json({ error: "Unknown type. Use leave, leave-submitted, welcome, test, missed-clock-out, or daily-summary" }, 400);
   } catch (err) {
     console.error("notifications error", err);
-    return json({ error: "Internal server error" }, 500);
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
