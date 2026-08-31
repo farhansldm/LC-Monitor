@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workSessionsApi } from "@/lib/work-sessions-api";
 import { shiftsApi } from "@/lib/shifts-api";
+import { notifyExtensionClockedIn, notifyExtensionClockedOut } from "@/lib/extension-activate";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,12 @@ export default function EmployeeDashboardPage() {
   const loginType = (session?.login_type as "WFH" | "SITE" | null | undefined) ?? null;
   const sessionIp = (session?.ip_address as string | null | undefined) ?? null;
   const sessionNotes = (session?.notes as string | null | undefined) ?? "";
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (isWorking) notifyExtensionClockedIn();
+    else notifyExtensionClockedOut();
+  }, [isLoading, isWorking]);
 
   useEffect(() => {
     setNoteDraft(sessionNotes);

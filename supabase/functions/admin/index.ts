@@ -36,6 +36,10 @@ function isAdminRole(role: unknown) {
   return role === "ADMIN" || role === "HR_MANAGER";
 }
 
+function isPlaceholderEmail(value: string): boolean {
+  return /@(example\.(com|org|net)|test\.com)\b/i.test(value);
+}
+
 async function notifyEmail(payload: Record<string, unknown>) {
   try {
     const base = Deno.env.get("SUPABASE_URL");
@@ -718,11 +722,14 @@ serve(async (req) => {
     }
 
     if (resource === "email-status" && req.method === "GET") {
-      const configured = Boolean(Deno.env.get("RESEND_API_KEY"));
-      const from = Deno.env.get("RESEND_FROM") || "LC Monitor <beth.t@example.com>";
+      const from = Deno.env.get("RESEND_FROM") || "";
+      const hasPlaceholderFrom = !!from && isPlaceholderEmail(from);
+      const configured = Boolean(Deno.env.get("RESEND_API_KEY") && from && !hasPlaceholderFrom);
       return json({
         configured,
         from,
+        has_placeholder_from: hasPlaceholderFrom,
+        missing_from: !from,
         types: [
           "Welcome email when an admin creates a user",
           "Leave submitted → team manager + admins",
@@ -740,8 +747,16 @@ serve(async (req) => {
       if (!Deno.env.get("RESEND_API_KEY")) {
         return json({ error: "RESEND_API_KEY is not set. Run: npx supabase secrets set RESEND_API_KEY=re_..." }, 400);
       }
+      const from = Deno.env.get("RESEND_FROM") || "";
+      if (!from || isPlaceholderEmail(from)) {
+        return json({ error: "RESEND_FROM must be set to a verified non-placeholder sender address." }, 400);
+      }
       const result = await notifyEmail({ type: "test", to }) as { ok?: boolean; error?: string; sent?: boolean };
-      if (result?.error || result?.ok === false) return json({ error: result.error || "Send failed" }, 502);
+      if (result?.error || result?.ok === false) {
+        const message = result.error || "Send failed";
+        const status = /RESEND_|verified|sender|domain|API key/i.test(message) ? 400 : 502;
+        return json({ error: message }, status);
+      }
       return json(result);
     }
 

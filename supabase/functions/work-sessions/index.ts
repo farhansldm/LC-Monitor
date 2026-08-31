@@ -980,10 +980,23 @@ serve(async (req) => {
       if (error) throw error;
 
       const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-      const screenshots = (data || []).map((s) => ({
-        ...s,
-        public_url: `${supabaseUrl}/storage/v1/object/public/screenshots/${s.storage_path}`,
-      }));
+      const screenshots = await Promise.all(
+        (data || []).map(async (s) => {
+          const { data: signedData, error: signedError } = await supabase.storage
+            .from("screenshots")
+            .createSignedUrl(s.storage_path, 60 * 60);
+
+          if (signedError) {
+            console.error("Screenshot signed URL error:", signedError);
+          }
+
+          return {
+            ...s,
+            signed_url: signedData?.signedUrl || null,
+            public_url: `${supabaseUrl}/storage/v1/object/public/screenshots/${s.storage_path}`,
+          };
+        }),
+      );
 
       return json({ screenshots });
     }
@@ -1837,8 +1850,9 @@ serve(async (req) => {
         if (s.login_type === "SITE") site++;
       });
 
-      // Average hours per user-day: sum each user-day's seconds then average
-      const userDayValues = Object.values(byUserDay);
+      // Average hours per user-day. A single employee-day cannot exceed 24 hours,
+      // even if stale/duplicate sessions exist in the source data.
+      const userDayValues = Object.values(byUserDay).map((sec) => Math.min(sec, 24 * 60 * 60));
       const avgHoursPerDay = userDayValues.length
         ? Math.round((userDayValues.reduce((a, b) => a + b, 0) / userDayValues.length / 3600) * 10) / 10
         : 0;

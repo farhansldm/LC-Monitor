@@ -25,7 +25,11 @@ function postToExtension(type: string, extra: Record<string, unknown> = {}) {
     if (!c?.runtime?.sendMessage) return;
     for (const id of EXTENSION_IDS) {
       c.runtime.sendMessage(id, { type, ...extra }, () => {
-        void c.runtime?.lastError;
+        try {
+          void c.runtime?.lastError;
+        } catch {
+          /* Extension was reloaded/updated while the page was sending a message. */
+        }
       });
     }
   } catch {

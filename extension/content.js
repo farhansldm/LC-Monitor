@@ -1,12 +1,33 @@
-if (window.__lcMonitorContent) {
-  /* already injected */
-} else {
-  window.__lcMonitorContent = true;
+const LC_MONITOR_CONTENT_VERSION = 2;
 
-  window.postMessage(
-    { source: "lc-monitor-ext", type: "LC_MONITOR_PING" },
-    window.location.origin,
-  );
+if (window.__lcMonitorContentVersion !== LC_MONITOR_CONTENT_VERSION) {
+  window.__lcMonitorContentVersion = LC_MONITOR_CONTENT_VERSION;
+
+  function sendRuntimeMessage(message) {
+    try {
+      if (!chrome?.runtime?.id || !chrome.runtime.sendMessage) return;
+      chrome.runtime.sendMessage(message, () => {
+        try {
+          void chrome.runtime.lastError;
+        } catch {
+          /* Extension was reloaded/updated while this content script was still active. */
+        }
+      });
+    } catch {
+      /* Ignore stale content scripts after extension reload/update. */
+    }
+  }
+
+  function pingPageForSession() {
+    window.postMessage(
+      { source: "lc-monitor-ext", type: "LC_MONITOR_PING" },
+      window.location.origin,
+    );
+  }
+
+  [0, 500, 1500, 3000].forEach((delay) => {
+    window.setTimeout(pingPageForSession, delay);
+  });
 
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
@@ -26,9 +47,6 @@ if (window.__lcMonitorContent) {
 
     if (!type) return;
 
-    chrome.runtime.sendMessage(
-      { type, token: data.token, user: data.user },
-      () => void chrome.runtime.lastError,
-    );
+    sendRuntimeMessage({ type, token: data.token, user: data.user });
   });
 }

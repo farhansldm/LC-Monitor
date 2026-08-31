@@ -60,13 +60,15 @@ export default function EmailSettingsPage() {
                   {data?.configured ? "configured" : "not configured"}
                 </span>
               </p>
-              <p className="text-xs text-muted-foreground font-mono">From: {data?.from}</p>
+              <p className="text-xs text-muted-foreground font-mono">From: {data?.from || "Not set"}</p>
               {/* Warn when the sender address is still a placeholder */}
-              {data?.from && /example\.(com|org|net)/i.test(data.from) && (
+              {(data?.has_placeholder_from || data?.missing_from) && (
                 <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/8 px-4 py-3 text-sm">
                   <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-semibold text-warning">Placeholder sender address detected</p>
+                    <p className="font-semibold text-warning">
+                      {data?.missing_from ? "Sender address is not configured" : "Placeholder sender address detected"}
+                    </p>
                     <p className="text-muted-foreground text-xs mt-0.5">
                       Outbound emails (leave updates, welcome, daily summaries) will fail delivery or be marked as spam.
                       Set a verified <span className="font-mono">RESEND_FROM</span> secret and redeploy the
@@ -82,7 +84,7 @@ export default function EmailSettingsPage() {
                   <code className="block mt-2 rounded-md bg-muted p-3 text-xs">
                     npx supabase secrets set RESEND_API_KEY=re_your_key
                     <br />
-                    npx supabase secrets set RESEND_FROM=&quot;LC Monitor &lt;leo.a@example.org&gt;&quot;
+                    npx supabase secrets set RESEND_FROM=&quot;LC Monitor &lt;no-reply@careerjumpstart.com.au&gt;&quot;
                     <br />
                     npx supabase functions deploy notifications
                     <br />

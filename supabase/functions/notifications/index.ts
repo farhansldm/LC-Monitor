@@ -53,11 +53,14 @@ function layout(title: string, body: string): string {
 
 async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean; stubbed: boolean; error?: string }> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("RESEND_FROM") || "LC Monitor <beth.t@example.com>";
+  const from = Deno.env.get("RESEND_FROM") || "";
   if (!to || !to.includes("@")) return { sent: false, stubbed: false, error: "invalid recipient" };
   if (!apiKey) {
     console.log("[notifications stub]", { to, subject });
     return { sent: false, stubbed: true };
+  }
+  if (!from || /@(example\.(com|org|net)|test\.com)\b/i.test(from)) {
+    return { sent: false, stubbed: false, error: "RESEND_FROM must be set to a verified non-placeholder sender address." };
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

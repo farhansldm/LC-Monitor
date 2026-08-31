@@ -18,6 +18,7 @@ chrome.storage.local.get(['session', 'clockedIn', 'lastScreenshotAt'], (data) =>
 });
 
 chrome.runtime.onInstalled.addListener(() => injectIntoOpenTabs());
+chrome.runtime.onStartup.addListener(() => injectIntoOpenTabs());
 
 async function injectIntoOpenTabs() {
   try {
@@ -60,6 +61,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === 'SAVE_SESSION' || msg.type === 'ACTIVATE_MONITORING') {
     applySession(msg.token, msg.user);
+    if (clockedIn) resumeMonitoring(false);
     sendResponse?.({ ok: true });
     return false;
   }
@@ -124,6 +126,8 @@ function setClockedIn(next) {
   if (turningOn) {
     console.log('Clocked in — monitoring started');
     resumeMonitoring(true);
+  } else if (clockedIn) {
+    resumeMonitoring(false);
   } else if (turningOff) {
     console.log('Clocked out — monitoring stopped');
     pauseMonitoring();

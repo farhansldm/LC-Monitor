@@ -31,8 +31,13 @@ interface Screenshot {
   id: string;
   storage_path: string;
   taken_at: string;
-  public_url: string;
+  public_url?: string | null;
+  signed_url?: string | null;
   is_blurred?: boolean;
+}
+
+function getScreenshotUrl(screenshot: Screenshot): string {
+  return screenshot.signed_url || screenshot.public_url || "";
 }
 
 // Helper to get local date string YYYY-MM-DD
@@ -81,6 +86,7 @@ function ScreenshotModal({
 }) {
   const [index, setIndex] = useState(initialIndex);
   const current = screenshots[index];
+  const currentUrl = getScreenshotUrl(current);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -130,7 +136,7 @@ function ScreenshotModal({
         {/* Image */}
         <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
           <img
-            src={current.public_url}
+            src={currentUrl}
             alt={`Screenshot at ${formatTime(current.taken_at)}`}
             className="w-full h-auto max-h-[75vh] object-contain"
           />
@@ -172,6 +178,7 @@ function ScreenshotThumbnail({
 }) {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const imageUrl = getScreenshotUrl(screenshot);
 
   return (
     <button
@@ -179,20 +186,20 @@ function ScreenshotThumbnail({
       className="group relative rounded-xl overflow-hidden border border-border/40 hover:border-primary/50 bg-muted/30 transition-all duration-200 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
       style={{ aspectRatio: "16/9" }}
     >
-      {!loaded && !errored && (
+      {!loaded && !errored && imageUrl && (
         <Skeleton className="absolute inset-0 rounded-xl" />
       )}
 
-      {errored && (
+      {(errored || !imageUrl) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/60 text-muted-foreground gap-2">
           <ImageOff className="h-6 w-6 opacity-50" />
           <span className="text-[10px] opacity-60">Failed to load</span>
         </div>
       )}
 
-      {!errored && (
+      {!errored && imageUrl && (
         <img
-          src={screenshot.public_url}
+          src={imageUrl}
           alt={`Screenshot ${index + 1}`}
           className={`w-full h-full object-cover transition-opacity duration-300 ${
             loaded ? "opacity-100" : "opacity-0"
