@@ -40,6 +40,16 @@ function isPlaceholderEmail(value: string): boolean {
   return /@(example\.(com|org|net)|test\.com)\b/i.test(value);
 }
 
+function istDateBoundsUtc(date: string): { start: string; end: string } {
+  const [year, month, day] = date.split("-").map(Number);
+  const startMs = Date.UTC(year, month - 1, day, -5, -30, 0, 0);
+  const endMs = Date.UTC(year, month - 1, day + 1, -5, -30, 0, 0);
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+  };
+}
+
 async function notifyEmail(payload: Record<string, unknown>) {
   try {
     const base = Deno.env.get("SUPABASE_URL");
@@ -503,7 +513,8 @@ serve(async (req) => {
 
       if (userId && isUUID(userId)) query = query.eq("user_id", userId);
       if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        query = query.gte("taken_at", `${date}T00:00:00Z`).lt("taken_at", `${date}T23:59:59.999Z`);
+        const bounds = istDateBoundsUtc(date);
+        query = query.gte("taken_at", bounds.start).lt("taken_at", bounds.end);
       }
       query = query.limit(200);
 

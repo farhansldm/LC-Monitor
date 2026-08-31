@@ -89,6 +89,16 @@ function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function istDateBoundsUtc(date: string): { start: string; end: string } {
+  const [year, month, day] = date.split("-").map(Number);
+  const startMs = Date.UTC(year, month - 1, day, -5, -30, 0, 0);
+  const endMs = Date.UTC(year, month - 1, day + 1, -5, -30, 0, 0);
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+  };
+}
+
 function weekStart(): string {
   const d = new Date();
   const day = d.getDay();
@@ -971,9 +981,10 @@ serve(async (req) => {
         .order("taken_at", { ascending: true });
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        const bounds = istDateBoundsUtc(dateParam);
         query = query
-          .gte("taken_at", `${dateParam}T00:00:00.000Z`)
-          .lte("taken_at", `${dateParam}T23:59:59.999Z`);
+          .gte("taken_at", bounds.start)
+          .lt("taken_at", bounds.end);
       }
 
       const { data, error } = await query;
