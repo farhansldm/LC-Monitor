@@ -29,7 +29,6 @@ import ReportsPage from "@/pages/ReportsPage";
 import PoliciesPage from "@/pages/PoliciesPage";
 import AuditLogsPage from "@/pages/admin/AuditLogsPage";
 import IpConfigPage from "@/pages/admin/IpConfigPage";
-import EmailSettingsPage from "@/pages/admin/EmailSettingsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,7 +75,6 @@ const App = () => (
             <Route path="/admin/analytics" element={<ProtectedPage><AnalyticsPage /></ProtectedPage>} />
             <Route path="/admin/audit-logs" element={<ProtectedPage><AuditLogsPage /></ProtectedPage>} />
             <Route path="/admin/ip-config" element={<ProtectedPage><IpConfigPage /></ProtectedPage>} />
-            <Route path="/admin/email" element={<ProtectedPage><EmailSettingsPage /></ProtectedPage>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

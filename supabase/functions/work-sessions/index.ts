@@ -48,35 +48,6 @@ async function requireAuth(req: Request, jwtSecret: string): Promise<Record<stri
   return await verifyJWT(authHeader.replace("Bearer ", ""), jwtSecret);
 }
 
-async function notifyEmail(payload: Record<string, unknown>) {
-  try {
-    const base = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!base || !key) return;
-    await fetch(`${base}/functions/v1/notifications`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        apikey: key,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    console.error("notification failed", err);
-  }
-}
-
-async function notifyLeaveDecision(payload: {
-  to: string;
-  name: string;
-  date: string;
-  status: string;
-  comment: string;
-}) {
-  await notifyEmail({ type: "leave", ...payload });
-}
-
 function isAdminRole(role: string) {
   return role === "ADMIN" || role === "HR_MANAGER";
 }
@@ -170,6 +141,30 @@ function timeStringToSeconds(t: string): number {
   return Number(h) * 3600 + Number(m) * 60 + Number(s);
 }
 
+async function cleanupMonitoringArtifacts(supabase: any) {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const { data: oldScreenshots } = await supabase
+      .from("screenshots")
+      .select("storage_path")
+      .lt("taken_at", cutoff);
+
+    const pathsToRemove = (oldScreenshots || [])
+      .map((s: { storage_path?: string | null }) => s.storage_path)
+      .filter((path: string | null | undefined): path is string => Boolean(path));
+
+    if (pathsToRemove.length > 0) {
+      await supabase.storage.from("screenshots").remove(pathsToRemove);
+    }
+
+    await supabase.from("screenshots").delete().lt("taken_at", cutoff);
+    await supabase.from("browser_history").delete().lt("visited_at", cutoff);
+  } catch (cleanupErr) {
+    console.error("Monitoring retention cleanup error:", cleanupErr);
+  }
+}
+
 serve(async (req) => {
   const cors = getCorsHeaders(req);
   const json = (body: unknown, status = 200) =>
@@ -196,6 +191,10 @@ serve(async (req) => {
   const action = pathParts[pathParts.length - 1];
 
   try {
+    if (action === "browser-history" || action === "screenshots") {
+      await cleanupMonitoringArtifacts(supabase);
+    }
+
     // GET /work-sessions/status
     if (action === "status" && req.method === "GET") {
       // Fetch ALL sessions for today (multiple clock-in/out cycles)
@@ -955,25 +954,6 @@ serve(async (req) => {
         }
       }
 
-      // Automated retention cleanup: purge DB records & storage files older than 15 days according to date/time
-      try {
-        const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: oldScreenshots } = await supabase
-          .from("screenshots")
-          .select("id, storage_path")
-          .lt("taken_at", fifteenDaysAgo);
-
-        if (oldScreenshots && oldScreenshots.length > 0) {
-          const pathsToRemove = oldScreenshots.map((s) => s.storage_path).filter(Boolean);
-          if (pathsToRemove.length > 0) {
-            await supabase.storage.from("screenshots").remove(pathsToRemove);
-          }
-          await supabase.from("screenshots").delete().lt("taken_at", fifteenDaysAgo);
-        }
-      } catch (cleanupErr) {
-        console.error("Screenshot retention cleanup error:", cleanupErr);
-      }
-
       // Query screenshots for target date
       let query = supabase
         .from("screenshots")
@@ -1420,37 +1400,6 @@ serve(async (req) => {
         .single();
       if (error) throw error;
 
-      const { data: requester } = await supabase
-        .from("users")
-        .select("first_name, last_name, email, team_id")
-        .eq("id", userId)
-        .maybeSingle();
-      const employeeName = `${requester?.first_name || ""} ${requester?.last_name || ""}`.trim() || "Employee";
-      const to: string[] = [];
-      if (requester?.team_id) {
-        const { data: team } = await supabase.from("teams").select("manager_id").eq("id", requester.team_id).maybeSingle();
-        if (team?.manager_id) {
-          const { data: mgr } = await supabase.from("users").select("email").eq("id", team.manager_id).maybeSingle();
-          if (mgr?.email) to.push(mgr.email);
-        }
-      }
-      const { data: admins } = await supabase
-        .from("users")
-        .select("email")
-        .in("role", ["ADMIN", "HR_MANAGER"])
-        .eq("status", "ACTIVE");
-      (admins || []).forEach((a: { email?: string }) => { if (a.email) to.push(a.email); });
-      const recipients = [...new Set(to)].filter((e) => e !== requester?.email);
-      if (recipients.length > 0) {
-        await notifyEmail({
-          type: "leave-submitted",
-          to: recipients,
-          employee_name: employeeName,
-          date,
-          reason: reason.trim().slice(0, 500),
-        });
-      }
-
       return json({ leave }, 201);
     }
 
@@ -1523,21 +1472,6 @@ serve(async (req) => {
             },
             { onConflict: "user_id,date" }
           );
-      }
-
-      const { data: emp } = await supabase
-        .from("users")
-        .select("email, first_name")
-        .eq("id", existing.user_id)
-        .maybeSingle();
-      if (emp?.email) {
-        await notifyLeaveDecision({
-          to: emp.email,
-          name: emp.first_name || "there",
-          date: String(existing.date),
-          status: reviewAction,
-          comment,
-        });
       }
 
       return json({ leave: updated });

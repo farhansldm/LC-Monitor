@@ -36,10 +36,6 @@ function isAdminRole(role: unknown) {
   return role === "ADMIN" || role === "HR_MANAGER";
 }
 
-function isPlaceholderEmail(value: string): boolean {
-  return /@(example\.(com|org|net)|test\.com)\b/i.test(value);
-}
-
 function istDateBoundsUtc(date: string): { start: string; end: string } {
   const [year, month, day] = date.split("-").map(Number);
   const startMs = Date.UTC(year, month - 1, day, -5, -30, 0, 0);
@@ -48,29 +44,6 @@ function istDateBoundsUtc(date: string): { start: string; end: string } {
     start: new Date(startMs).toISOString(),
     end: new Date(endMs).toISOString(),
   };
-}
-
-async function notifyEmail(payload: Record<string, unknown>) {
-  try {
-    const base = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!base || !key) return { ok: false };
-    const res = await fetch(`${base}/functions/v1/notifications`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        apikey: key,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({ error: "Invalid notification response" }));
-    if (!res.ok) return { ok: false, error: data.error || "Send failed" };
-    return data;
-  } catch (err) {
-    console.error("notification failed", err);
-    return { ok: false, error: String(err) };
-  }
 }
 
 function isValidCidr(v: string): boolean {
@@ -227,14 +200,6 @@ serve(async (req) => {
           if (error.code === "23505") return json({ error: "Email already exists" }, 409);
           throw error;
         }
-        await notifyEmail({
-          type: "welcome",
-          to: email,
-          email,
-          name: first_name,
-          password,
-          app_url: Deno.env.get("APP_URL") || "https://farhan.careerjumpstart.com.au",
-        });
         return json({ user: data }, 201);
       }
 
@@ -730,45 +695,6 @@ serve(async (req) => {
       });
 
       return json({ logs, offset, limit, has_more: (events || []).length === limit });
-    }
-
-    if (resource === "email-status" && req.method === "GET") {
-      const from = Deno.env.get("RESEND_FROM") || "";
-      const hasPlaceholderFrom = !!from && isPlaceholderEmail(from);
-      const configured = Boolean(Deno.env.get("RESEND_API_KEY") && from && !hasPlaceholderFrom);
-      return json({
-        configured,
-        from,
-        has_placeholder_from: hasPlaceholderFrom,
-        missing_from: !from,
-        types: [
-          "Welcome email when an admin creates a user",
-          "Leave submitted → team manager + admins",
-          "Leave approved/rejected → employee",
-          "Still clocked in (scheduled)",
-          "Yesterday's hours (scheduled)",
-        ],
-      });
-    }
-
-    if (resource === "email-test" && req.method === "POST") {
-      const body = await req.json().catch(() => ({}));
-      const to = validateEmail(body.to) || (typeof claims.email === "string" ? claims.email : "");
-      if (!to) return json({ error: "A valid to email is required" }, 400);
-      if (!Deno.env.get("RESEND_API_KEY")) {
-        return json({ error: "RESEND_API_KEY is not set. Run: npx supabase secrets set RESEND_API_KEY=re_..." }, 400);
-      }
-      const from = Deno.env.get("RESEND_FROM") || "";
-      if (!from || isPlaceholderEmail(from)) {
-        return json({ error: "RESEND_FROM must be set to a verified non-placeholder sender address." }, 400);
-      }
-      const result = await notifyEmail({ type: "test", to }) as { ok?: boolean; error?: string; sent?: boolean };
-      if (result?.error || result?.ok === false) {
-        const message = result.error || "Send failed";
-        const status = /RESEND_|Resend|verified|sender|domain|API key/i.test(message) ? 400 : 502;
-        return json({ error: message }, status);
-      }
-      return json(result);
     }
 
     return json({ error: "Not found" }, 404);

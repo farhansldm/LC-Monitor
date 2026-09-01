@@ -64,7 +64,4 @@ export const adminApi = {
     const qs = q.toString();
     return request(qs ? `audit-logs?${qs}` : "audit-logs");
   },
-  getEmailStatus: () => request("email-status"),
-  sendTestEmail: (to?: string) =>
-    request("email-test", { method: "POST", body: JSON.stringify(to ? { to } : {}) }),
 };

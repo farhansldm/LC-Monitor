@@ -22,7 +22,6 @@ import {
   Network,
   Moon,
   Sun,
-  Mail,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import companyLogo from "@/assets/lemoncode-logo.png";
@@ -69,7 +68,6 @@ const adminItems = [
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollText },
   { title: "Trusted IPs", url: "/admin/ip-config", icon: Network },
-  { title: "Email", url: "/admin/email", icon: Mail },
 ];
 
 export function AppSidebar() {

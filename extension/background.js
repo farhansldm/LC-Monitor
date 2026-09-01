@@ -9,6 +9,7 @@ let lastScreenshotError = null;
 
 const FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 const SCREENSHOT_MINUTES = 15;
+const INITIAL_SCREENSHOT_DELAY_MINUTES = 0.1;
 
 chrome.storage.local.get(['session', 'clockedIn', 'lastScreenshotAt'], (data) => {
   if (data.session) session = data.session;
@@ -99,7 +100,8 @@ function resumeMonitoring(resetScreenshotTimer) {
   if (!session || !clockedIn) return;
   chrome.alarms.create('history_flush', { delayInMinutes: 1, periodInMinutes: 1 });
   captureActiveTab();
-  if (resetScreenshotTimer) armScreenshotAlarm();
+  armScreenshotAlarm(resetScreenshotTimer);
+  scheduleInitialScreenshot(resetScreenshotTimer);
 }
 
 function pauseMonitoring() {
@@ -107,6 +109,7 @@ function pauseMonitoring() {
   flushHistoryBuffer();
   currentFocus = { url: null, title: null, startedAt: null };
   chrome.alarms.clear('screenshot_alarm');
+  chrome.alarms.clear('screenshot_initial');
   chrome.alarms.clear('history_flush');
   chrome.alarms.clear('status_poll');
   historyBuffer = [];
@@ -134,17 +137,27 @@ function setClockedIn(next) {
   }
 }
 
-function armScreenshotAlarm() {
-  chrome.alarms.create('screenshot_alarm', {
-    delayInMinutes: SCREENSHOT_MINUTES,
-    periodInMinutes: SCREENSHOT_MINUTES,
+function armScreenshotAlarm(reset = false) {
+  chrome.alarms.get('screenshot_alarm', (alarm) => {
+    if (alarm && !reset) return;
+    chrome.alarms.create('screenshot_alarm', {
+      delayInMinutes: SCREENSHOT_MINUTES,
+      periodInMinutes: SCREENSHOT_MINUTES,
+    });
+    console.log(`Screenshot alarm armed: first scheduled capture in ${SCREENSHOT_MINUTES} minutes, then every ${SCREENSHOT_MINUTES} minutes`);
   });
-  console.log(`Screenshot alarm armed: first capture in ${SCREENSHOT_MINUTES} minutes, then every ${SCREENSHOT_MINUTES} minutes`);
+}
+
+function scheduleInitialScreenshot(force = false) {
+  const last = lastScreenshotAt ? Date.parse(lastScreenshotAt) : 0;
+  const due = !last || Date.now() - last >= SCREENSHOT_MINUTES * 60 * 1000;
+  if (!force && !due) return;
+  chrome.alarms.create('screenshot_initial', { delayInMinutes: INITIAL_SCREENSHOT_DELAY_MINUTES });
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (!session || !clockedIn) return;
-  if (alarm.name === 'screenshot_alarm') takeScreenshot();
+  if (alarm.name === 'screenshot_alarm' || alarm.name === 'screenshot_initial') takeScreenshot();
   if (alarm.name === 'history_flush') {
     commitCurrentFocus(true);
     flushHistoryBuffer();
@@ -214,13 +227,15 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 async function findCaptureWindowId() {
   try {
     const last = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
-    if (last?.id != null) return last.id;
+    const activeTab = last?.tabs?.find((tab) => tab.active);
+    if (last?.id != null && isTrackableUrl(activeTab?.url)) return last.id;
   } catch {
     /* ignore */
   }
   const wins = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
-  const focused = wins.find((w) => w.focused);
-  return (focused || wins[0])?.id ?? null;
+  const focused = wins.find((w) => w.focused && isTrackableUrl(w.tabs?.find((tab) => tab.active)?.url));
+  const trackable = wins.find((w) => isTrackableUrl(w.tabs?.find((tab) => tab.active)?.url));
+  return (focused || trackable)?.id ?? null;
 }
 
 async function takeScreenshot() {
