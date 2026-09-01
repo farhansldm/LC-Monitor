@@ -142,13 +142,14 @@ function timeStringToSeconds(t: string): number {
 }
 
 async function cleanupMonitoringArtifacts(supabase: any) {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const browserHistoryCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const screenshotCutoff = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
 
   try {
     const { data: oldScreenshots } = await supabase
       .from("screenshots")
       .select("storage_path")
-      .lt("taken_at", cutoff);
+      .lt("taken_at", screenshotCutoff);
 
     const pathsToRemove = (oldScreenshots || [])
       .map((s: { storage_path?: string | null }) => s.storage_path)
@@ -158,8 +159,8 @@ async function cleanupMonitoringArtifacts(supabase: any) {
       await supabase.storage.from("screenshots").remove(pathsToRemove);
     }
 
-    await supabase.from("screenshots").delete().lt("taken_at", cutoff);
-    await supabase.from("browser_history").delete().lt("visited_at", cutoff);
+    await supabase.from("screenshots").delete().lt("taken_at", screenshotCutoff);
+    await supabase.from("browser_history").delete().lt("visited_at", browserHistoryCutoff);
   } catch (cleanupErr) {
     console.error("Monitoring retention cleanup error:", cleanupErr);
   }
