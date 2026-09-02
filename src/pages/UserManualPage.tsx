@@ -40,8 +40,8 @@ const extensionSteps = [
 
 export default function UserManualPage() {
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="page-shell animate-fade-in">
+      <div className="page-hero flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Badge variant="outline" className="mb-3 border-primary/20 bg-primary/5 text-primary">
             User manual
@@ -54,12 +54,15 @@ export default function UserManualPage() {
             Operational guide for employees, managers, administrators, and Chrome extension setup.
           </p>
         </div>
-        <Button asChild className="h-11 gap-2 rounded-lg">
-          <a href={EXTENSION_DOWNLOAD_URL} download>
-            <Download className="h-4 w-4" />
-            Download Chrome Extension
-          </a>
-        </Button>
+        <div className="soft-panel p-4">
+          <p className="section-label mb-3">Chrome Extension</p>
+          <Button asChild className="h-11 gap-2 rounded-lg">
+            <a href={EXTENSION_DOWNLOAD_URL} download>
+              <Download className="h-4 w-4" />
+              Download Extension
+            </a>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

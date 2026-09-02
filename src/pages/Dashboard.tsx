@@ -8,10 +8,11 @@ import { toTitleCase } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Clock, Users, CalendarCheck, AlertTriangle, Activity, Timer, UsersRound, Coffee, TrendingUp, Home, Building2 } from "lucide-react";
+import { Clock, Users, CalendarCheck, AlertTriangle, Activity, Timer, UsersRound, Coffee, TrendingUp, Home, Building2, ArrowRight, ShieldCheck, ClipboardList, Camera, Globe, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,17 +27,17 @@ function StatCard({
 }) {
   return (
     <Card
-      className={`card-premium ${clickable ? "card-interactive" : ""}`}
+      className={`metric-card ${clickable ? "card-interactive" : ""}`}
       onClick={onClick}
     >
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardHeader className="flex flex-row items-center justify-between p-0">
         <CardTitle className="section-label">{title}</CardTitle>
-        <div className={`stat-icon ${iconBg}`}>
-          <Icon className={`h-[18px] w-[18px] ${iconColor}`} />
+        <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${iconBg}`}>
+          <Icon className={`h-4 w-4 ${iconColor}`} />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-[28px] font-display font-extrabold tracking-tight leading-none tabular-nums">
+      <CardContent className="p-0">
+        <div className="metric-value">
           {value}
         </div>
         {subtitle && (
@@ -44,6 +45,62 @@ function StatCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function InsightPanel({
+  title,
+  value,
+  detail,
+  icon: Icon,
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div className="soft-panel flex items-start gap-3 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="section-label">{title}</p>
+        <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
+        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function ActionTile({
+  title,
+  detail,
+  icon: Icon,
+  onClick,
+}: {
+  title: string;
+  detail: string;
+  icon: React.ElementType;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/30"
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">{title}</span>
+          <span className="block truncate text-xs text-muted-foreground">{detail}</span>
+        </span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </button>
   );
 }
 
@@ -100,6 +157,13 @@ function EmployeeDashboard() {
     0,
   );
   const weekDisplay = isWorking ? weekSeconds + Math.max(0, elapsed - totalCompletedSeconds) : weekSeconds;
+  const dayTargetSeconds = 8 * 60 * 60;
+  const weekTargetSeconds = 40 * 60 * 60;
+  const dayProgress = Math.min(100, Math.round((elapsed / dayTargetSeconds) * 100));
+  const weekProgress = Math.min(100, Math.round((weekDisplay / weekTargetSeconds) * 100));
+  const sessionStart = session?.start_time
+    ? new Date(session.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "Not started";
 
   const clockInMut = useMutation({
     mutationFn: workSessionsApi.clockIn,
@@ -122,23 +186,26 @@ function EmployeeDashboard() {
   const statusLabel = isWorking ? (onBreak ? "On Break" : "Clocked In") : "Not Clocked In";
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="page-shell animate-fade-in">
+      <div className="page-hero flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="page-heading">Good {greeting}{user?.first_name ? `, ${toTitleCase(user.first_name)}` : ""}!</h1>
-          <p className="page-subheading">Here's your workday overview</p>
+          <Badge variant="outline" className="mb-3 border-primary/20 bg-primary/5 text-primary">
+            {statusLabel}
+          </Badge>
+          <h1 className="page-hero-title">Good {greeting}{user?.first_name ? `, ${toTitleCase(user.first_name)}` : ""}</h1>
+          <p className="page-hero-subtitle">Track the day, keep breaks accurate, and review your weekly progress from one focused workspace.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 self-end">
           {!isWorking ? (
-            <Button id="dash-clock-in" onClick={() => clockInMut.mutate()} disabled={clockInMut.isPending} className="gap-2">
-              Clock In
+            <Button id="dash-clock-in" onClick={() => clockInMut.mutate()} disabled={clockInMut.isPending} className="h-11 gap-2 rounded-lg">
+              Clock In <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button id="dash-clock-out" variant="destructive" onClick={() => clockOutMut.mutate()} disabled={clockOutMut.isPending || onBreak} className="gap-2">
+            <Button id="dash-clock-out" variant="destructive" onClick={() => clockOutMut.mutate()} disabled={clockOutMut.isPending || onBreak} className="h-11 gap-2 rounded-lg">
               Clock Out
             </Button>
           )}
-          <Button id="dash-open-workday" variant="outline" onClick={() => navigate("/employee")}>
+          <Button id="dash-open-workday" variant="outline" onClick={() => navigate("/employee")} className="h-11 rounded-lg">
             Full workday
           </Button>
         </div>
@@ -172,6 +239,49 @@ function EmployeeDashboard() {
           {loginType === "WFH" ? <><Home className="h-3 w-3 mr-1" /> WFH</> : <><Building2 className="h-3 w-3 mr-1" /> SITE</>}
         </Badge>
       )}
+
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-display font-semibold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Work Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="font-medium">Today</span>
+                <span className="font-mono text-xs text-muted-foreground">{dayProgress}% of 8h</span>
+              </div>
+              <Progress value={dayProgress} className="h-2" />
+            </div>
+            <div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="font-medium">This week</span>
+                <span className="font-mono text-xs text-muted-foreground">{weekProgress}% of 40h</span>
+              </div>
+              <Progress value={weekProgress} className="h-2" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <InsightPanel title="Session Start" value={sessionStart} detail="Current or latest work session" icon={Clock} />
+              <InsightPanel title="Break State" value={onBreak ? "On break" : "Available"} detail={onBreak ? "Active time is paused" : "Active time is tracking"} icon={Coffee} />
+              <InsightPanel title="Location" value={loginType || "Pending"} detail="Resolved at clock-in" icon={loginType === "SITE" ? Building2 : Home} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-display font-semibold">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ActionTile title="Open Workday" detail="Breaks, notes, and detailed session view" icon={Timer} onClick={() => navigate("/employee")} />
+            <ActionTile title="Timesheet" detail="Review recent sessions and work notes" icon={ClipboardList} onClick={() => navigate("/timesheet")} />
+            <ActionTile title="Policies" detail="Read company policy documents" icon={ShieldCheck} onClick={() => navigate("/policies")} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -209,6 +319,9 @@ function ManagerDashboard() {
   const avgSeconds = totalMembers > 0
     ? Math.floor(members.reduce((sum, m) => sum + (period === "today" ? m.today_seconds : m.period_seconds), 0) / totalMembers)
     : 0;
+  const notStarted = members.filter((m) => !m.today_session).length;
+  const completed = members.filter((m) => !m.is_working && m.today_session).length;
+  const totalTrackedSeconds = members.reduce((sum, m) => sum + (period === "today" ? m.today_seconds : m.period_seconds), 0);
 
   if (!isLoading && !hasTeam) {
     return (
@@ -230,13 +343,16 @@ function ManagerDashboard() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="page-shell animate-fade-in">
+      <div className="page-hero flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="page-heading">Team Overview</h1>
-          <p className="page-subheading">Monitor your team's attendance and activity</p>
+          <Badge variant="outline" className="mb-3 border-info/20 bg-info/5 text-info">
+            Manager Workspace
+          </Badge>
+          <h1 className="page-hero-title">Team Overview</h1>
+          <p className="page-hero-subtitle">Review who is working, where they clocked in, and how team hours are tracking for the selected period.</p>
         </div>
-        <div className="flex gap-0.5 bg-muted/60 p-1 rounded-xl border border-border/40">
+        <div className="flex gap-0.5 bg-muted/60 p-1 rounded-lg border border-border/40">
           {(["today", "week"] as const).map((p) => (
             <Button
               key={p}
@@ -268,6 +384,45 @@ function ManagerDashboard() {
           subtitle={period === "today" ? "today" : "this week"}
           icon={CalendarCheck}
         />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-display font-semibold flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              Team Pulse
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <InsightPanel title="Working" value={String(workingNow.length)} detail="Employees currently clocked in" icon={Activity} />
+            <InsightPanel title="Completed" value={String(completed)} detail="Employees with a completed or inactive session today" icon={CalendarCheck} />
+            <InsightPanel title="Not Started" value={String(notStarted)} detail="Employees without a session today" icon={AlertTriangle} />
+          </CardContent>
+        </Card>
+
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-display font-semibold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Capacity Snapshot
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <InsightPanel title="Tracked Time" value={formatDuration(totalTrackedSeconds)} detail={period === "today" ? "Total team time today" : "Total team time this week"} icon={Timer} />
+              <InsightPanel title="Average" value={formatDuration(avgSeconds)} detail="Average per team member" icon={Clock} />
+              <InsightPanel title="Coverage" value={`${totalMembers ? Math.round((workingNow.length / totalMembers) * 100) : 0}%`} detail="Current active coverage" icon={Users} />
+            </div>
+            <div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="font-medium">Active team coverage</span>
+                <span className="font-mono text-xs text-muted-foreground">{workingNow.length}/{totalMembers}</span>
+              </div>
+              <Progress value={totalMembers ? Math.round((workingNow.length / totalMembers) * 100) : 0} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="card-premium overflow-hidden">
@@ -363,12 +518,21 @@ function AdminDashboard() {
 
   const stats = data ?? { totalUsers: 0, activeUsers: 0, totalTeams: 0, pendingCorrections: 0 };
   const activeSessions = activeData?.active_sessions ?? [];
+  const activeRatio = stats.totalUsers > 0 ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="page-heading">Admin Dashboard</h1>
-        <p className="page-subheading">Organization-wide overview and management</p>
+    <div className="page-shell animate-fade-in">
+      <div className="page-hero flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <Badge variant="outline" className="mb-3 border-primary/20 bg-primary/5 text-primary">
+            Admin Command Center
+          </Badge>
+          <h1 className="page-hero-title">Organization Overview</h1>
+          <p className="page-hero-subtitle">Monitor active work, teams, users, corrections, and operational signals across Lemon Host Monitor.</p>
+        </div>
+        <Button variant="outline" className="h-11 gap-2 rounded-lg" onClick={() => navigate("/admin")}>
+          Admin tools <ShieldCheck className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -376,6 +540,43 @@ function AdminDashboard() {
         <StatCard title="Working Now" value={activeSessions.length} icon={Activity} iconColor="text-success" iconBg="bg-success/8" />
         <StatCard title="Teams" value={isLoading ? "…" : stats.totalTeams} icon={UsersRound} iconColor="text-info" iconBg="bg-info/8" clickable onClick={() => navigate("/admin/teams")} />
         <StatCard title="Pending Reviews" value={isLoading ? "…" : stats.pendingCorrections} icon={AlertTriangle} iconColor="text-warning" iconBg="bg-warning/8" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-display font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Operational Health
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="font-medium">Active user coverage</span>
+                <span className="font-mono text-xs text-muted-foreground">{activeRatio}%</span>
+              </div>
+              <Progress value={activeRatio} className="h-2" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <InsightPanel title="Users" value={`${stats.activeUsers}/${stats.totalUsers}`} detail="Active user accounts" icon={Users} />
+              <InsightPanel title="Live Sessions" value={String(activeSessions.length)} detail="Currently clocked in" icon={Activity} />
+              <InsightPanel title="Reviews" value={String(stats.pendingCorrections)} detail="Pending correction queue" icon={AlertTriangle} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-premium">
+          <CardHeader>
+            <CardTitle className="text-sm font-display font-semibold">Admin Shortcuts</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <ActionTile title="Users" detail="Accounts, roles, departments" icon={Users} onClick={() => navigate("/admin/users")} />
+            <ActionTile title="Analytics" detail="Hours, WFH, late and early signals" icon={TrendingUp} onClick={() => navigate("/admin/analytics")} />
+            <ActionTile title="Screenshots" detail="Periodic visual activity review" icon={Camera} onClick={() => navigate("/screenshots")} />
+            <ActionTile title="Browser History" detail="Visited sites and active duration" icon={Globe} onClick={() => navigate("/admin/browser-history")} />
+          </CardContent>
+        </Card>
       </div>
 
       {activeSessions.length > 0 && (

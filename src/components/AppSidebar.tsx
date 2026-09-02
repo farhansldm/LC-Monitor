@@ -93,20 +93,20 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       {/* Brand */}
-      <div className="flex items-center justify-center px-3 py-5 border-b border-sidebar-border/60">
+      <div className="flex items-center justify-center px-3 py-5 border-b border-sidebar-border/60 bg-sidebar-accent/20">
         {collapsed ? (
           <img src={companyLogo} alt="LC" className="h-10 w-auto object-contain" />
         ) : (
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-sidebar-accent border border-sidebar-border/40 flex items-center justify-center p-1">
+            <div className="h-11 w-11 rounded-lg bg-white border border-sidebar-border/40 flex items-center justify-center p-1 shadow-sm">
               <img src={companyLogo} alt="LC" className="h-full w-auto object-contain" />
             </div>
             <div>
-              <span className="text-[15px] font-display font-bold text-sidebar-accent-foreground tracking-tight leading-none">
+              <span className="text-[14px] font-display font-extrabold text-sidebar-accent-foreground tracking-tight leading-none">
                 Lemon Host Monitor
               </span>
               <span className="block text-[10px] text-sidebar-muted font-medium tracking-[0.12em] uppercase mt-0.5">
-                Workforce
+                Workforce OS
               </span>
             </div>
           </div>
@@ -130,8 +130,8 @@ export function AppSidebar() {
                       isActive={active}
                       tooltip={item.title}
                       className={`rounded-lg h-9 transition-all duration-150 ${active
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-sm"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
                         }`}
                     >
                       <NavLink to={item.url} end>
@@ -170,8 +170,8 @@ export function AppSidebar() {
                           isActive={active}
                           tooltip={item.title}
                           className={`rounded-lg h-9 transition-all duration-150 ${active
-                              ? "bg-sidebar-accent text-white font-medium shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
-                              : "text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-white/90"
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-sm"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
                             }`}
                         >
                           <NavLink to={item.url} end>
@@ -197,7 +197,7 @@ export function AppSidebar() {
         {user && !collapsed && (
           <div className="mb-2.5 px-1">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-sidebar-accent to-sidebar-accent/60 flex items-center justify-center text-[11px] font-bold text-sidebar-accent-foreground shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center text-[11px] font-bold text-sidebar-primary-foreground shrink-0">
                 {user.first_name[0]}{user.last_name[0]}
               </div>
               <div className="min-w-0">

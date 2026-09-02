@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2, CalendarClock, StickyNote } from "lucide-react";
+import { Clock, LogIn, LogOut, Timer, Activity, Coffee, Play, History, Home, Building2, CalendarClock, StickyNote, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function formatDuration(totalSeconds: number): string {
@@ -136,12 +136,41 @@ export default function EmployeeDashboardPage() {
   const greeting = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening";
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="page-heading">
+    <div className="page-shell animate-fade-in">
+      <div className="page-hero flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+        <Badge variant="outline" className="mb-3 border-primary/20 bg-primary/5 text-primary">
+          My Workday
+        </Badge>
+        <h1 className="page-hero-title">
           Good {greeting}, {user?.first_name}!
         </h1>
-        <p className="page-subheading">Your workday at a glance</p>
+        <p className="page-hero-subtitle">Clock in, manage breaks, capture session notes, and keep monitoring synced with the Chrome extension.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!isWorking && (
+            <Button size="lg" onClick={() => clockInMut.mutate()} disabled={clockInMut.isPending} className="h-11 gap-2 rounded-lg">
+              <LogIn className="h-4 w-4" /> Clock In <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+          {isWorking && !onBreak && (
+            <>
+              <Button size="lg" variant="outline" onClick={() => breakInMut.mutate()} disabled={breakInMut.isPending}
+                className="h-11 gap-2 rounded-lg border-warning/25 text-warning hover:bg-warning/5 hover:text-warning">
+                <Coffee className="h-4 w-4" /> Start Break
+              </Button>
+              <Button size="lg" variant="destructive" onClick={() => clockOutMut.mutate()} disabled={clockOutMut.isPending} className="h-11 gap-2 rounded-lg">
+                <LogOut className="h-4 w-4" /> Clock Out
+              </Button>
+            </>
+          )}
+          {isWorking && onBreak && (
+            <Button size="lg" onClick={() => breakOutMut.mutate()} disabled={breakOutMut.isPending}
+              className="h-11 gap-2 rounded-lg bg-accent hover:bg-accent/90">
+              <Play className="h-4 w-4" /> End Break
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -308,33 +337,6 @@ export default function EmployeeDashboardPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Actions — always allow clock-in when not currently working */}
-      <div className="flex flex-wrap gap-3">
-        {!isWorking && (
-          <Button size="lg" onClick={() => clockInMut.mutate()} disabled={clockInMut.isPending} className="gap-2 shadow-md hover:shadow-lg transition-all h-12 rounded-xl">
-            <LogIn className="h-5 w-5" /> Clock In
-          </Button>
-        )}
-        {isWorking && !onBreak && (
-          <>
-            <Button size="lg" variant="outline" onClick={() => breakInMut.mutate()} disabled={breakInMut.isPending}
-              className="gap-2 border-warning/25 text-warning hover:bg-warning/5 hover:text-warning h-12 rounded-xl">
-              <Coffee className="h-5 w-5" /> Start Break
-            </Button>
-            <Button size="lg" variant="destructive" onClick={() => clockOutMut.mutate()} disabled={clockOutMut.isPending} className="gap-2 h-12 rounded-xl">
-              <LogOut className="h-5 w-5" /> Clock Out
-            </Button>
-          </>
-        )}
-        {isWorking && onBreak && (
-          <Button size="lg" onClick={() => breakOutMut.mutate()} disabled={breakOutMut.isPending}
-            className="gap-2 bg-accent hover:bg-accent/90 shadow-md h-12 rounded-xl">
-            <Play className="h-5 w-5" /> End Break
-          </Button>
-        )}
-      </div>
-
       {/* Session History */}
       {sessions.length > 0 && (
         <Card className="card-premium overflow-hidden">
