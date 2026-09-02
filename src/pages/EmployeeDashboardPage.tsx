@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workSessionsApi } from "@/lib/work-sessions-api";
 import { shiftsApi } from "@/lib/shifts-api";
@@ -50,6 +50,14 @@ export default function EmployeeDashboardPage() {
   const loginType = (session?.login_type as "WFH" | "SITE" | null | undefined) ?? null;
   const sessionIp = (session?.ip_address as string | null | undefined) ?? null;
   const sessionNotes = (session?.notes as string | null | undefined) ?? "";
+  const completedBreakSeconds = useMemo(
+    () =>
+      breaks
+        .filter((b: { break_end: string | null }) => b.break_end)
+        .reduce((sum: number, b: { duration_seconds?: number }) => sum + (b.duration_seconds || 0), 0),
+    [breaks],
+  );
+  const displayedBreakSeconds = onBreak ? completedBreakSeconds + breakElapsed : totalBreakSeconds;
 
   useEffect(() => {
     if (isLoading) return;
@@ -219,9 +227,7 @@ export default function EmployeeDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-[28px] font-display font-extrabold font-mono tracking-wider tabular-nums leading-none">
-              {onBreak
-                ? formatDuration(totalBreakSeconds - (activeBreak ? Math.floor((Date.now() - new Date(activeBreak.break_start).getTime()) / 1000) : 0) + breakElapsed)
-                : formatDuration(totalBreakSeconds)}
+              {formatDuration(displayedBreakSeconds)}
             </div>
             {onBreak && (
               <p className="text-xs text-warning mt-2 flex items-center gap-1.5">

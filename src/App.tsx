@@ -27,6 +27,7 @@ import DepartmentsPage from "@/pages/admin/DepartmentsPage";
 import AnalyticsPage from "@/pages/admin/AnalyticsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import PoliciesPage from "@/pages/PoliciesPage";
+import UserManualPage from "@/pages/UserManualPage";
 import AuditLogsPage from "@/pages/admin/AuditLogsPage";
 import IpConfigPage from "@/pages/admin/IpConfigPage";
 
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/leave" element={<ProtectedPage><LeaveRequestsPage /></ProtectedPage>} />
             <Route path="/reports" element={<ProtectedPage><ReportsPage /></ProtectedPage>} />
             <Route path="/policies" element={<ProtectedPage><PoliciesPage /></ProtectedPage>} />
+            <Route path="/manual" element={<ProtectedPage><UserManualPage /></ProtectedPage>} />
             <Route path="/chats" element={<ProtectedPage><ChatsPage /></ProtectedPage>} />
             <Route path="/tasks" element={<ProtectedPage><TasksPage /></ProtectedPage>} />
             <Route path="/team" element={<ProtectedPage><TeamPage /></ProtectedPage>} />

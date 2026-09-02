@@ -35,7 +35,7 @@ const LoginPage = () => {
       <div
         className="hidden lg:flex lg:w-[48%] relative overflow-hidden items-center justify-center"
         style={{
-          background: "linear-gradient(160deg, hsl(222 47% 8%) 0%, hsl(222 55% 18%) 40%, hsl(164 45% 22%) 100%)",
+          background: "linear-gradient(160deg, hsl(220 24% 9%) 0%, hsl(215 42% 22%) 52%, hsl(210 28% 34%) 100%)",
         }}
       >
         {/* Decorative grid */}
@@ -46,25 +46,25 @@ const LoginPage = () => {
             backgroundSize: "40px 40px",
           }}
         />
-        {/* Decorative gradient orb */}
+        {/* Subtle blue depth */}
         <div className="absolute top-1/4 -right-32 w-96 h-96 rounded-full opacity-10"
-          style={{ background: "radial-gradient(circle, hsl(164 55% 46%), transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, hsl(214 82% 58%), transparent 70%)" }}
         />
         <div className="absolute bottom-1/4 -left-24 w-72 h-72 rounded-full opacity-[0.06]"
-          style={{ background: "radial-gradient(circle, hsl(210 78% 52%), transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, hsl(220 18% 82%), transparent 70%)" }}
         />
 
         <div className="relative z-10 text-center px-16 max-w-xl">
           <div className="mb-10 flex justify-center">
             <div className="rounded-2xl bg-white/[0.08] backdrop-blur-md p-10 border border-white/[0.08] shadow-2xl">
-              <img src={companyLogo} alt="LC Monitor" className="h-44 w-auto object-contain brightness-0 invert" />
+              <img src={companyLogo} alt="Lemon Host Monitor" className="h-44 w-auto object-contain brightness-0 invert" />
             </div>
           </div>
           <h1 className="text-4xl font-display font-extrabold text-white tracking-tight mb-3 leading-tight">
-            LC Monitor
+            Lemon Host Monitor
           </h1>
           <p className="text-white/50 text-sm leading-relaxed max-w-sm mx-auto">
-            Enterprise workforce management — time tracking, attendance, and analytics in one platform.
+            Enterprise workforce management for time, attendance, and monitoring in one platform.
           </p>
 
           {/* Feature chips */}
@@ -99,10 +99,10 @@ const LoginPage = () => {
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center mb-10">
             <div className="rounded-2xl bg-muted/50 p-8 border border-border/60">
-              <img src={companyLogo} alt="LC Monitor" className="h-36 w-auto object-contain" />
+              <img src={companyLogo} alt="Lemon Host Monitor" className="h-36 w-auto object-contain" />
             </div>
             <h1 className="text-2xl font-display font-extrabold tracking-tight text-foreground mt-4">
-              LC Monitor
+              Lemon Host Monitor
             </h1>
           </div>
 
@@ -111,7 +111,7 @@ const LoginPage = () => {
               Welcome back
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
-              Sign in to your LC Monitor account
+              Sign in to your Lemon Host Monitor account
             </p>
           </div>
 

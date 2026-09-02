@@ -1,5 +1,5 @@
 /**
- * Shared formatting helpers used across the LC Monitor frontend.
+ * Shared formatting helpers used across the Lemon Host Monitor frontend.
  */
 
 /**

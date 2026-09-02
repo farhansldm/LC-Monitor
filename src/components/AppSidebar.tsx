@@ -22,6 +22,7 @@ import {
   Network,
   Moon,
   Sun,
+  BookOpen,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import companyLogo from "@/assets/lemoncode-logo.png";
@@ -51,6 +52,7 @@ const navItems = [
   { title: "Leave Requests", url: "/leave", icon: Palmtree, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Reports", url: "/reports", icon: FileBarChart, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Policies", url: "/policies", icon: ScrollText, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
+  { title: "User Manual", url: "/manual", icon: BookOpen, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Chats", url: "/chats", icon: MessageSquare, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Tasks", url: "/tasks", icon: ClipboardList, roles: ["EMPLOYEE", "MANAGER", "ADMIN", "HR_MANAGER"] },
   { title: "Team", url: "/team", icon: Users, roles: ["MANAGER", "ADMIN", "HR_MANAGER"] },
@@ -101,7 +103,7 @@ export function AppSidebar() {
             </div>
             <div>
               <span className="text-[15px] font-display font-bold text-sidebar-accent-foreground tracking-tight leading-none">
-                LC Monitor
+                Lemon Host Monitor
               </span>
               <span className="block text-[10px] text-sidebar-muted font-medium tracking-[0.12em] uppercase mt-0.5">
                 Workforce

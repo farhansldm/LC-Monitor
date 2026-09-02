@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "LC Monitor Extension",
+  "name": "Lemon Host Monitor Extension",
   "version": "1.2.1",
-  "description": "Employee monitoring extension for LC Monitor.",
+  "description": "Employee monitoring extension for Lemon Host Monitor.",
   "permissions": [
     "alarms",
     "storage",
@@ -18,7 +18,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "LC Monitor Settings"
+    "default_title": "Lemon Host Monitor Settings"
   },
   "content_scripts": [
     {
