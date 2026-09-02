@@ -1,8 +1,8 @@
-# LC Monitor
+# Lemon Host Monitor
 
-LC Monitor is an internal workforce monitoring and attendance platform for AIIDA. It combines a React web dashboard, Supabase PostgreSQL/Edge Functions, and a Chrome MV3 extension to manage employee work sessions, breaks, attendance, leave, screenshots, browser history, chat, tasks, reports, and HR/admin operations.
+Lemon Host Monitor is an internal workforce attendance and monitoring platform. It includes a React web dashboard, Supabase PostgreSQL/Edge Functions, and a Chrome Manifest V3 extension for clock-in tracking, attendance, screenshots, browser-history duration tracking, team review, leave, shifts, policies, chat, tasks, reports, analytics, and HR/admin operations.
 
-```
+```text
 React/Vite Dashboard <-> Supabase Edge Functions <-> PostgreSQL
         |                         ^
         v                         |
@@ -11,17 +11,17 @@ React/Vite Dashboard <-> Supabase Edge Functions <-> PostgreSQL
 
 Active Supabase project reference: `ivipigucanknjjvmnble`
 
-Do not commit `.env`, `extension/config.js`, or `public/supabase-proxy.php` when they contain real credentials.
+Real credentials must stay out of git. Do not commit `.env`, `extension/config.js`, or `public/supabase-proxy.php` when they contain production values.
 
-## Documentation Map
+## Documentation
 
-| Document | Purpose |
+| Document or page | Purpose |
 | --- | --- |
-| `README.md` | Project overview, setup, workflows, and day-to-day commands |
-| `DEPLOYMENT.md` | Production deployment runbook and operational notes |
-| `docs/ARCHITECTURE.md` | System architecture, data flow, security model, and module map |
-| `docs/API_REFERENCE.md` | Edge Function endpoint reference used by the frontend and extension |
-| `docs/CHROME_EXTENSION.md` | Browser extension setup, behavior, and troubleshooting |
+| `README.md` | Main project overview, setup, routes, commands, and maintenance notes |
+| `PROJECT_DOCUMENTATION.md` | Full project documentation prepared for handoff |
+| `DEPLOYMENT.md` | Production deployment runbook |
+| `/manual` | In-app user manual for employees, managers, HR, admins, and extension setup |
+| `public/downloads/lemon-host-monitor-extension.zip` | Packaged Chrome extension download used by the in-app manual |
 
 ## Tech Stack
 
@@ -38,35 +38,36 @@ Do not commit `.env`, `extension/config.js`, or `public/supabase-proxy.php` when
 | Extension | Chrome Extension Manifest V3 |
 | Testing | Vitest, React Testing Library |
 
-## Core Features
+## Main Features
 
 | Module | What it supports |
 | --- | --- |
 | Authentication | Custom email/password login, app-issued JWTs, role-aware sessions |
-| Workday | Clock in/out, break in/out, active status, multi-session daily history |
-| Attendance | Monthly attendance view, correction requests, manager/admin review |
-| Timesheets | Session history, employee notes, manager comments, CSV export |
-| Leave | Employee leave requests, manager/admin/HR approval, attendance sync |
-| Shifts | Shift creation, user assignment, late and early flagging |
-| Teams | Team assignment, manager overview, active employees |
-| Departments | Admin-managed departments and user department assignment |
-| Reports | Date, employee, department, WFH/site, late, and early filters |
-| Analytics | Monthly hours, break averages, WFH/site split, late/early counts |
+| Dashboard | Role-based dashboard views for employees, managers, HR managers, and admins |
+| Workday | Clock in/out, break in/out, active status, notes, and session history |
+| Attendance | Monthly attendance, late/early flags, correction requests, and review workflows |
+| Timesheets | Work-session history, employee notes, manager comments, and CSV export |
+| Leave | Leave requests, approval workflows, and attendance synchronization |
+| Shifts | Shift creation, assignment, late tracking, early-leave tracking, and schedules |
+| Teams | Team assignment, manager overview, active employee visibility |
+| Departments | Department management and user assignment |
+| Reports | Filters for date, employee, department, WFH/site, late, and early status |
+| Analytics | Monthly hours, break averages, WFH/site split, and late/early counts |
 | Policies | Employee policy reading and admin/HR policy management |
-| Monitoring | Screenshot upload, browser-history duration tracking, manager views |
-| Chat | Groups, direct messages, message search, WebRTC call UI |
-| Tasks | Kanban-style task CRUD and activity history |
-| Email | Welcome, leave, test, missed clock-out, and daily-summary notifications |
+| Monitoring | Screenshot upload, browser-history duration tracking, and manager/admin review |
+| Chat | Groups, direct messages, search, and WebRTC call UI |
+| Tasks | Kanban-style task management and task activity history |
+| User Manual | In-app operational guide and Chrome extension download |
 | Audit | Admin/HR audit logs for operational changes |
 
 ## Roles
 
 | Role | Access summary |
 | --- | --- |
-| `EMPLOYEE` | Dashboard, workday, timesheet, attendance, leave, policies, chat, tasks |
-| `MANAGER` | Employee access plus team overview, reports, screenshots, browser history, approvals |
-| `HR_MANAGER` | Admin-level HR/admin access without being named `ADMIN` |
-| `ADMIN` | Full user, team, department, shift, policy, IP, audit, analytics, and email administration |
+| `EMPLOYEE` | Dashboard, My Workday, timesheet, attendance, leave, policies, manual, chat, and tasks |
+| `MANAGER` | Employee access plus team overview, reports, screenshots, browser history, and approvals |
+| `HR_MANAGER` | HR/admin operations, users, teams, departments, shifts, policies, analytics, and audit logs |
+| `ADMIN` | Full user, team, department, shift, policy, IP, audit, analytics, and monitoring administration |
 
 Role helpers live in `src/lib/roles.ts`.
 
@@ -86,7 +87,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server runs on:
+The local Vite app runs at:
 
 ```text
 http://localhost:8080
@@ -94,7 +95,7 @@ http://localhost:8080
 
 ### Environment files
 
-Copy the example files before local development:
+For local development, copy the example files and fill the values for your environment:
 
 ```text
 .env.example                      -> .env
@@ -115,13 +116,11 @@ Backend Supabase secrets:
 
 ```text
 JWT_SECRET
-RESEND_API_KEY
-RESEND_FROM
 CRON_SECRET
 APP_URL
 ```
 
-`JWT_SECRET` is required by `auth`, `admin`, `work-sessions`, `chat`, and `tasks`. Changing it invalidates existing sessions.
+`JWT_SECRET` is required by `auth`, `admin`, `work-sessions`, `chat`, and `tasks`. Changing it invalidates existing app sessions.
 
 ## Common Commands
 
@@ -148,17 +147,18 @@ Lc-Monitor-main/
 |   |-- pages/admin/                    # Admin and HR management pages
 |   |-- lib/                            # API clients, auth helpers, roles, utilities
 |   |-- hooks/                          # App hooks, including WebRTC
-|   |-- integrations/supabase/          # Generated Supabase client/types
+|   |-- integrations/supabase/          # Supabase client/types
 |   |-- test/                           # Vitest setup and examples
 |-- supabase/
 |   |-- functions/                      # Edge Functions
 |   |-- migrations/                     # PostgreSQL schema migrations
 |   |-- config.toml                     # Supabase local/project config
-|-- extension/                         # Chrome MV3 extension
+|-- extension/                         # Chrome MV3 extension source
 |-- public/
+|   |-- downloads/                      # Packaged extension ZIP for the in-app manual
 |   |-- supabase-proxy.example.php      # Production Edge Function proxy template
-|-- docs/                              # Architecture/API/extension documentation
 |-- DEPLOYMENT.md                      # Production runbook
+|-- PROJECT_DOCUMENTATION.md           # Final project documentation
 ```
 
 ## Application Routes
@@ -173,6 +173,7 @@ Lc-Monitor-main/
 | `/leave` | Leave Requests | All authenticated users |
 | `/reports` | Reports | Manager, HR Manager, Admin |
 | `/policies` | Policies | All users; write access for HR/Admin |
+| `/manual` | User Manual and Extension Download | All authenticated users |
 | `/chats` | Chat | All authenticated users |
 | `/tasks` | Tasks | All authenticated users |
 | `/team` | Team Overview | Manager, HR Manager, Admin |
@@ -187,22 +188,21 @@ Lc-Monitor-main/
 | `/admin/analytics` | Analytics | HR Manager, Admin |
 | `/admin/audit-logs` | Audit Logs | HR Manager, Admin |
 | `/admin/ip-config` | Trusted IP Ranges | HR Manager, Admin |
-| `/admin/email` | Email Settings | HR Manager, Admin |
 
-The route tree is defined in `src/App.tsx`; role-sensitive page behavior is enforced in UI code and Edge Functions.
+The route tree is defined in `src/App.tsx`. Server-side role and team checks are enforced in the Supabase Edge Functions.
 
 ## Authentication Model
 
-LC Monitor uses custom authentication implemented in `supabase/functions/auth/index.ts`.
+Lemon Host Monitor uses custom authentication implemented in `supabase/functions/auth/index.ts`.
 
 1. Users submit email and password to `/functions/v1/auth/login`.
 2. The function validates credentials against the `users` table.
-3. Passwords are verified with PBKDF2; legacy SHA-256 hashes are migrated on successful login.
+3. Passwords are verified with PBKDF2; legacy SHA-256 hashes are migrated after successful login.
 4. The function signs a 24-hour HS256 JWT using `JWT_SECRET`.
 5. The frontend stores the token in local storage and sends it as `Authorization: Bearer <token>`.
 6. Edge Functions verify the JWT and enforce role/team access.
 
-The frontend auth helpers live in `src/lib/auth.ts` and `src/contexts/AuthContext.tsx`.
+Frontend auth helpers live in `src/lib/auth.ts` and `src/contexts/AuthContext.tsx`.
 
 ## Backend Overview
 
@@ -210,12 +210,11 @@ Supabase Edge Functions:
 
 | Function | Responsibility |
 | --- | --- |
-| `auth` | Login, signup, current user |
-| `work-sessions` | Clocking, breaks, attendance, leave, shifts, reports, screenshots, browser history |
-| `admin` | Users, teams, departments, policies, IP ranges, audit logs, email checks |
-| `chat` | Groups, direct messages, members, messages, search |
+| `auth` | Login, signup, and current-user session validation |
+| `work-sessions` | Clocking, breaks, attendance, leave, shifts, reports, screenshots, and browser history |
+| `admin` | Users, teams, departments, policies, IP ranges, audit logs, and admin data |
+| `chat` | Groups, direct messages, members, messages, and search |
 | `tasks` | Task CRUD and task activity |
-| `notifications` | Resend email delivery and scheduled notification jobs |
 
 Frontend API wrappers live in `src/lib/*-api.ts`.
 
@@ -225,7 +224,7 @@ In development the app calls Edge Functions directly:
 https://<project-ref>.supabase.co/functions/v1/<function>
 ```
 
-In production the app calls the PHP proxy:
+In production the app can call through the PHP proxy:
 
 ```text
 /supabase-proxy.php?path=<function>/<endpoint>
@@ -233,7 +232,7 @@ In production the app calls the PHP proxy:
 
 ## Database Overview
 
-The schema is managed by SQL files in `supabase/migrations/`.
+The database schema is managed by SQL files in `supabase/migrations/`.
 
 Core tables:
 
@@ -267,25 +266,40 @@ Important enums include `user_role`, `user_status`, `event_type`, `session_sourc
 
 The extension in `extension/` is a Chrome Manifest V3 extension. It stores the app session, listens for clock-in and clock-out messages, captures screenshots while the user is clocked in, and uploads browser-history duration data.
 
-Load it locally:
+The in-app user manual provides a download button for:
+
+```text
+/downloads/lemon-host-monitor-extension.zip
+```
+
+The ZIP is intended for internal organization sharing and should contain the real extension files required by the organization. Do not include `.example` files in the shared package.
+
+Local extension setup:
 
 1. Open `chrome://extensions`.
 2. Enable Developer Mode.
-3. Click Load unpacked.
-4. Select the `extension/` folder.
-5. Log in to the web dashboard and clock in.
+3. Download the ZIP from the in-app User Manual or use the local `extension/` folder.
+4. Extract the ZIP if using the packaged download.
+5. Click Load unpacked.
+6. Select the extracted extension folder or the local `extension/` folder.
+7. Log in to the web dashboard and clock in.
 
-See `docs/CHROME_EXTENSION.md` for full setup and troubleshooting.
+Monitoring retention:
+
+| Data | Retention |
+| --- | --- |
+| Browser history | Deleted after 24 hours |
+| Screenshots | Retained for 15 days |
 
 ## Development Workflow
 
 1. Pull the latest code and install dependencies with `npm install`.
-2. Copy and fill `.env`, `extension/config.js`, and `public/supabase-proxy.php` from their examples.
+2. Copy and fill `.env`, `extension/config.js`, and `public/supabase-proxy.php` for local development.
 3. Run `npm run dev`.
 4. Use the Supabase-hosted Edge Functions for local backend calls.
-5. Load the extension from `extension/` only when testing monitoring behavior.
+5. Load the Chrome extension only when testing monitoring behavior.
 6. Run `npm run lint` and `npm run test` before shipping changes.
-7. Build with `npm run build` before deploying the frontend.
+7. Build with `npm run build` before deployment.
 
 ## Deployment Summary
 
@@ -297,28 +311,12 @@ High-level production steps:
 4. Ensure the `screenshots` storage bucket exists.
 5. Deploy Edge Functions.
 6. Build the frontend with `npm run build`.
-7. Upload the contents of `dist/` to a PHP-capable host.
-8. Confirm `supabase-proxy.php` is deployed and points at the correct project.
-9. Load/package the Chrome extension and configure the extension ID if needed.
+7. Upload the contents of `dist/` to the production host.
+8. Confirm `supabase-proxy.php` is deployed and points at the correct project if the host uses the PHP proxy.
+9. Confirm `/manual` can download the packaged Chrome extension.
+10. Install the extension, log in, clock in, and verify screenshots and browser history appear in the dashboard.
 
-Use `DEPLOYMENT.md` as the full runbook.
-
-## Email and Scheduled Jobs
-
-Emails are handled by the `notifications` Edge Function. If `RESEND_API_KEY` is missing, the function returns stubbed email responses instead of sending real email.
-
-Supported notification types:
-
-```text
-leave
-leave-submitted
-welcome
-test
-missed-clock-out
-daily-summary
-```
-
-Scheduled jobs must be authorized with `x-cron-secret` matching `CRON_SECRET`, or with the Supabase service role key.
+Use `DEPLOYMENT.md` as the full deployment runbook.
 
 ## Testing
 
@@ -327,6 +325,7 @@ The project is configured for Vitest with jsdom and React Testing Library.
 ```bash
 npm run test
 npm run lint
+npm run build
 ```
 
 Current tests live in `src/test/`. Add focused tests around shared helpers, API wrappers, and high-risk UI workflows when modifying behavior.
@@ -337,23 +336,26 @@ Current tests live in `src/test/`. Add focused tests around shared helpers, API 
 | --- | --- | --- |
 | Login fails for every user | Missing or changed `JWT_SECRET` | Set the secret and redeploy `auth` |
 | Production API calls fail | Proxy missing or wrong project URL | Deploy/fix `public/supabase-proxy.php` |
-| Screenshots do not appear | Extension not loaded, not clocked in, or bucket missing | Load extension, clock in, create `screenshots` bucket |
-| Browser history is empty | Extension has no session or user is clocked out | Log in, clock in, and check extension storage |
-| Emails are stubbed | `RESEND_API_KEY` not set | Set Resend secrets and redeploy notification-related functions |
+| Screenshots do not appear | Extension not loaded, user not clocked in, bucket missing, or proxy/function URL incorrect | Load extension, clock in, confirm bucket and API URL |
+| Browser history is empty | Extension has no session, user is clocked out, or tracking permissions are missing | Log in again, clock in, and check extension popup/storage |
 | Managers cannot see team data | Missing `team_id` or manager relationship | Check users and teams in Admin |
 | WFH/site classification is wrong | Trusted office IP ranges are missing | Add CIDR ranges under Admin -> Trusted IPs |
+| Extension download fails | ZIP missing from deployed `public/downloads` output | Rebuild and redeploy `dist/downloads/lemon-host-monitor-extension.zip` |
 
 ## Security Notes
 
 - Real secrets must stay out of git.
 - Edge Functions use the Supabase service role key server-side; never expose it to the browser.
 - The frontend stores only the app JWT and user profile in local storage.
-- Production requests should go through the PHP proxy only when direct Edge Function CORS is not suitable.
+- Production requests should use the intended Supabase function URL or PHP proxy consistently.
 - Admin and manager authorization must be enforced server-side, not only through hidden UI.
+- Monitoring data is captured only while the user is clocked in.
+- Browser history is short-lived by design and screenshots follow the configured retention window.
 
 ## Maintenance Notes
 
-- Keep migrations append-only unless you are intentionally rebuilding a development database.
+- Keep migrations append-only unless intentionally rebuilding a development database.
 - Update `src/integrations/supabase/types.ts` when the database schema changes.
 - Keep frontend API wrappers aligned with Edge Function endpoints.
-- Update this README and the relevant `docs/` file whenever a workflow, route, function, or environment variable changes.
+- Regenerate and verify `public/downloads/lemon-host-monitor-extension.zip` when extension source files change.
+- Update this README, `PROJECT_DOCUMENTATION.md`, and `DEPLOYMENT.md` whenever routes, workflows, functions, retention rules, or environment variables change.
