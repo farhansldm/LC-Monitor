@@ -1,1 +1,0 @@
-ALTER TABLE public.work_sessions DROP CONSTRAINT IF EXISTS work_sessions_user_id_date_key;

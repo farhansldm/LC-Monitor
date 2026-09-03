@@ -1,1 +1,0 @@
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS monitor_token uuid NOT NULL DEFAULT gen_random_uuid();
